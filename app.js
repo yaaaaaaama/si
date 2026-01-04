@@ -318,6 +318,7 @@ class Stopwatch {
         this.elapsedTime = 0;
         this.timerInterval = null;
         this.isRunning = false;
+        this.currentStopwatchRecordedAtIso = null;
     }
 
     start() {
@@ -514,27 +515,40 @@ class App {
 
         // ストップウォッチ
         document.getElementById('start-btn').addEventListener('click', () => {
-            if (!this.stopwatch.isRunning) {
-                this.stopwatch.start();
-                document.getElementById('start-btn').textContent = '一時停止';
-                document.getElementById('start-btn').classList.add('paused');
-                document.getElementById('stop-btn').disabled = false;
-            } else {
-                this.stopwatch.pause();
-                document.getElementById('start-btn').textContent = '再開';
-            }
+        const memoEl = document.getElementById('stopwatch-memo');
+
+        if (!this.stopwatch.isRunning) {
+            if (memoEl && this.stopwatch.elapsedTime === 0) memoEl.value = '';
+
+            this.stopwatch.start();
+            document.getElementById('start-btn').textContent = '一時停止';
+            document.getElementById('start-btn').classList.add('paused');
+            document.getElementById('stop-btn').disabled = false;
+
+            if (memoEl) memoEl.classList.remove('hidden');
+        } else {
+            this.stopwatch.pause();
+            document.getElementById('start-btn').textContent = '再開';
+        }
         });
 
         document.getElementById('stop-btn').addEventListener('click', () => {
-            const minutes = this.stopwatch.getMinutes();
-            if (minutes > 0) {
-                this.showCategoryModal(minutes);
-            }
-            this.stopwatch.stop();
-            this.stopwatch.display();
-            document.getElementById('start-btn').textContent = '開始';
-            document.getElementById('start-btn').classList.remove('paused');
-            document.getElementById('stop-btn').disabled = true;
+        const minutes = this.stopwatch.getMinutes();
+        const memoEl = document.getElementById('stopwatch-memo');
+        const memoText = memoEl ? memoEl.value.trim() : '';
+
+        if (minutes > 0) {
+            this.currentStopwatchRecordedAtIso = new Date().toISOString();
+            this.showCategoryModal(minutes, memoText);
+        }
+
+        this.stopwatch.stop();
+        this.stopwatch.display();
+        document.getElementById('start-btn').textContent = '開始';
+        document.getElementById('start-btn').classList.remove('paused');
+        document.getElementById('stop-btn').disabled = true;
+
+        if (memoEl) memoEl.classList.add('hidden');
         });
 
         // 手動追加ボタン
@@ -564,16 +578,24 @@ class App {
             const minutes = parseInt(document.getElementById('recorded-time').textContent);
             const text = document.getElementById('post-text').value.trim();
             const isPublic = document.getElementById('post-public').checked;
-            
+
             if (category && minutes > 0) {
-                await this.dataManager.addRecord(category, minutes, text, isPublic);
+                await this.dataManager.addRecord(
+                category,
+                minutes,
+                text,
+                isPublic,
+                this.currentStopwatchRecordedAtIso || new Date().toISOString()
+                );
+
                 this.hideCategoryModal();
                 await this.updateUI();
-                
-                // 投稿した場合はコミュニティ画面に移動
-                if (isPublic && text) {
-                    this.switchView('community');
-                }
+
+                const memoEl = document.getElementById('stopwatch-memo');
+                if (memoEl) memoEl.value = '';
+                this.currentStopwatchRecordedAtIso = null;
+
+                if (isPublic && text) this.switchView('community');
                 await this.updateUI();
             }
         });
@@ -826,15 +848,15 @@ class App {
         return card;
     }
 
-    showCategoryModal(minutes) {
+        showCategoryModal(minutes, memoText = '') {
         document.getElementById('recorded-time').textContent = `${minutes}分`;
         this.updateCategorySelect();
         document.getElementById('category-select').value = '';
-        document.getElementById('post-text').value = '';
+        document.getElementById('post-text').value = memoText || '';
         document.getElementById('post-public').checked = true;
         document.getElementById('save-record-btn').disabled = true;
         document.getElementById('category-modal').classList.remove('hidden');
-    }
+        }
 
     hideCategoryModal() {
         document.getElementById('category-modal').classList.add('hidden');

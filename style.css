@@ -284,6 +284,17 @@ body {
     margin-bottom: 20px;
 }
 
+.stopwatch-memo {
+  width: 100%;
+  min-height: 64px;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  font-size: 14px;
+  resize: vertical;
+  margin-bottom: 16px;
+}
+
 .control-btn {
     flex: 1;
     max-width: 150px;

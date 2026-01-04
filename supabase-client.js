@@ -115,6 +115,7 @@ const SupabaseDB = {
       is_public: isPublic,
     };
 
+    payload.recorded_at = recordedAtIso ?? new Date().toISOString();
     // 日付だけを0時にしたISOを渡すなら recorded_at に入れる
     if (recordedAtIso) payload.recorded_at = recordedAtIso;
 
@@ -185,8 +186,8 @@ const SupabaseDB = {
       .order('recorded_at', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false });    
 
-    if (startDate) query = query.gte('created_at', startDate);
-    if (endDate) query = query.lte('created_at', endDate);
+    if (startDate) query = query.gte('recorded_at', startDate);
+    if (endDate) query = query.lte('recorded_at', endDate);
 
     const { data, error } = await query;
     if (error) throw error;
@@ -261,7 +262,8 @@ const SupabaseDB = {
           username
         )
       `)
-      .order('recorded_at', { ascending: false, foreignTable: 'records' })
+      .order('recorded_at', { ascending: false, foreignTable: 'records', nullsFirst: false })
+      .order('created_at', { ascending: false })
       .limit(50);
 
     if (filter === 'following') {
