@@ -92,15 +92,26 @@ class DataManager {
         }
     }
 
+
+
     // 記録管理
-    async addRecord(category, minutes, text = '', isPublic = true) {
+    async addRecord(category, minutes, text = '', isPublic = true, createdAtIso = null) {
         try {
-            await SupabaseDB.addRecord(category, minutes, text, isPublic);
+            await SupabaseDB.addRecord(category, minutes, text, isPublic, createdAtIso);
             return true;
         } catch (error) {
             console.error('Add record error:', error);
             return false;
         }
+    }
+    async deleteRecord(recordId) {
+    try {
+        await SupabaseDB.deleteRecord(recordId);
+        return true;
+    } catch (error) {
+        console.error('Delete record error:', error);
+        return false;
+    }
     }
 
     async updateRecord(recordId, category, minutes, text) {
@@ -208,25 +219,28 @@ class DataManager {
     async getPosts(filter = 'recommended') {
         try {
             const posts = await SupabaseDB.getPosts(filter);
-            
-            // データを変換
-            return posts.map(post => ({
-                id: post.id,
-                userId: post.user_id,
-                userName: post.profiles.nickname,
-                username: post.profiles.username,
-                recordId: post.records.id,
-                category: post.records.category,
-                minutes: post.records.minutes,
-                text: post.records.text,
-                streak: 0, // TODO: 各ユーザーのstreakを取得
-                likes: post.likes,
-                commentsCount: post.commentsCount,
-                timestamp: new Date(post.created_at).getTime(),
-                isLiked: post.isLiked,
-                isMyPost: post.isMyPost,
-                comments: []
-            }));
+
+            return posts.map((post) => {
+                const recordedAt = post?.records?.recorded_at ?? post?.created_at; // フォールバック
+
+                return {
+                    id: post.id,
+                    userId: post.user_id,
+                    userName: post.profiles.nickname,
+                    username: post.profiles.username,
+                    recordId: post.records.id,
+                    category: post.records.category,
+                    minutes: post.records.minutes,
+                    text: post.records.text,
+                    streak: 0,
+                    likes: post.likes,
+                    commentsCount: post.commentsCount,
+                    timestamp: new Date(recordedAt).getTime(),
+                    isLiked: post.isLiked,
+                    isMyPost: post.isMyPost,
+                    comments: []
+                };
+            });
         } catch (error) {
             console.error('Get posts error:', error);
             return [];
@@ -399,6 +413,16 @@ class App {
         this.updateUI();
     }
 
+    toDatetimeLocalValue(d) {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mi = String(d.getMinutes()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
+    }
+
+
     setupEventListeners() {
 
 
@@ -563,6 +587,7 @@ class App {
                 document.getElementById('manual-new-category-input').value = '';
                 document.getElementById('manual-category-select').value = name;
                 document.getElementById('manual-save-btn').disabled = false;
+                document.getElementById('manual-date').value = this.toDateValue(new Date());
             }
         });
 
@@ -582,8 +607,16 @@ class App {
             const text = document.getElementById('manual-post-text').value.trim();
             const isPublic = document.getElementById('manual-post-public').checked;
 
+            const dt = document.getElementById('manual-date').value; 
+            let createdAtIso = null;
+            if (dt) {
+                const [y, m, d] = dt.split('-').map(Number);
+                const localMidnight = new Date(y, m - 1, d, 0, 0, 0);
+                createdAtIso = localMidnight.toISOString();
+            }
+
             if (category && totalMinutes > 0) {
-                await this.dataManager.addRecord(category, totalMinutes, text, isPublic);
+                await this.dataManager.addRecord(category, totalMinutes, text, isPublic, createdAtIso);
                 this.hideManualAddModal();
                 await this.updateUI();
                 
@@ -596,6 +629,27 @@ class App {
         // 編集モーダル
         document.getElementById('edit-cancel-btn').addEventListener('click', () => {
             this.hideEditModal();
+        });
+
+        document.getElementById('edit-delete-btn').addEventListener('click', async () => {
+        if (!this.currentEditRecordId) return;
+        const ok = window.confirm('この記録を削除します。よろしいですか？');
+        if (!ok) return;
+
+        try {
+            await this.dataManager.deleteRecord(this.currentEditRecordId);
+            this.hideEditModal();
+
+            // 現在のビューを再読み込み
+            if (this.currentViewUserId) {
+            await this.showUserPage(this.currentViewUserId);
+            } else {
+            await this.updateUI();
+            }
+        } catch (e) {
+            console.error('Delete record error:', e);
+            alert('削除に失敗しました。コンソールを確認してください。');
+        }
         });
 
         document.getElementById('edit-save-btn').addEventListener('click', async () => {
@@ -756,7 +810,7 @@ class App {
             </div>
             <div class="record-content">
                 <div class="record-category">${record.category}</div>
-                <div class="record-duration">${record.minutes}分</div>
+               <div class="record-duration">${this.formatDuration(record.minutes)}</div>
                 ${record.text ? `<div class="record-text">${record.text}</div>` : ''}
             </div>
         `;
@@ -786,9 +840,19 @@ class App {
         document.getElementById('category-modal').classList.add('hidden');
     }
 
+    toDateValue(d) {
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    } 
+
     async showManualAddModal() {
         document.getElementById('manual-hours').value = 0;
         document.getElementById('manual-minutes').value = 5;
+
+        document.getElementById('manual-date').value = this.toDatetimeLocalValue(new Date());
+
         await this.updateManualCategorySelect();
         document.getElementById('manual-category-select').value = '';
         document.getElementById('manual-post-text').value = '';
@@ -1073,7 +1137,7 @@ class App {
         const card = document.createElement('div');
         card.className = 'post-card';
 
-        const timeAgo = this.getTimeAgo(post.timestamp);
+        const timeText = this.formatDateTime(post.timestamp);
 
         card.innerHTML = `
             <div class="post-header">
@@ -1081,14 +1145,13 @@ class App {
                     <div class="user-avatar"></div>
                     <div class="user-info">
                         <div class="user-name">${post.userName}</div>
-                        <div class="post-time">${timeAgo}</div>
+                        <div class="post-time">${timeText}</div>
                     </div>
                 </div>
-                <div class="post-streak">${post.streak}日連続</div>
             </div>
             <div class="post-content">
                 <div class="post-category">${post.category}</div>
-                <div class="post-duration">${post.minutes}分</div>
+                <div class="post-duration">${this.formatDuration(post.minutes)}</div>
                 <div class="post-text">${post.text}</div>
             </div>
             <div class="post-actions">
@@ -1138,6 +1201,28 @@ class App {
         if (hours < 24) return `${hours}時間前`;
         return `${days}日前`;
     }
+
+    formatDuration(totalMinutes) {
+        const m = Number(totalMinutes) || 0;
+        if (m < 60) return `${m}分`;
+
+        const h = Math.floor(m / 60);
+        const r = m % 60;
+
+        if (r === 0) return `${h}時間`;
+        return `${h}時間${r}分`;
+    }   
+    formatDateTime(timestamp) {
+        const d = new Date(timestamp);
+
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        const hh = String(d.getHours()).padStart(2, '0');
+        const mi = String(d.getMinutes()).padStart(2, '0');
+
+        return `${yyyy}/${mm}/${dd}`;
+    }   
 
     async showCommentModal(postId) {
         this.currentPostId = postId;

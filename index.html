@@ -11,7 +11,6 @@
     <div id="login-screen" class="screen">
         <div class="container">
             <h1>si</h1>
-            <p class="subtitle">自己投資を続ける</p>
             <div class="auth-tabs">
                 <button class="auth-tab active" data-tab="login">ログイン</button>
                 <button class="auth-tab" data-tab="register">新規登録</button>
@@ -97,7 +96,6 @@
                     <button class="tab-btn active" data-tab="recommended">おすすめ</button>
                     <button class="tab-btn" data-tab="following">フォロー中</button>
                 </div>
-
                 <div id="posts-container"></div>
             </div>
         </div>
@@ -183,6 +181,8 @@
     <div id="manual-add-modal" class="modal hidden">
         <div class="modal-content">
             <h3>記録を手動で追加</h3>
+            <h4>日付</h4>
+            <input type="date" id="manual-date">
             <h4>時間を設定（5分単位）</h4>
             <div class="time-selector">
                 <label>
@@ -263,6 +263,7 @@
             <h4>コメント</h4>
             <textarea id="edit-post-text" placeholder="今日の感想を書く..." maxlength="100"></textarea>
             <div class="modal-actions">
+                <button id="edit-delete-btn" class="danger-btn">削除</button>
                 <button id="edit-cancel-btn" class="secondary-btn">キャンセル</button>
                 <button id="edit-save-btn" class="primary-btn">保存</button>
             </div>

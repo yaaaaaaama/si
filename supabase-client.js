@@ -104,18 +104,26 @@ const SupabaseDB = {
   },
 
   // 記録追加
-  async addRecord(category, minutes, text = '', isPublic = true) {
+  async addRecord(category, minutes, text = '', isPublic = true, recordedAtIso = null) {
     const user = await SupabaseAuth.getCurrentUser();
+
+    const payload = {
+      user_id: user.id,
+      category,
+      minutes,
+      text,
+      is_public: isPublic,
+    };
+
+    // 日付だけを0時にしたISOを渡すなら recorded_at に入れる
+    if (recordedAtIso) payload.recorded_at = recordedAtIso;
+
+    // created_at はDBの作成時刻に任せる（触らない）
+    // if (recordedAtIso) payload.created_at = recordedAtIso; ← これは消す
 
     const { data: record, error: recordError } = await supabaseClient
       .from('records')
-      .insert([{
-        user_id: user.id,
-        category,
-        minutes,
-        text,
-        is_public: isPublic
-      }])
+      .insert([payload])
       .select()
       .single();
 
@@ -136,6 +144,19 @@ const SupabaseDB = {
     return record;
   },
 
+
+
+  // 記録削除
+  async deleteRecord(recordId) {
+    const { error } = await supabaseClient
+      .from('records')
+      .delete()
+      .eq('id', recordId);
+
+    if (error) throw error;
+    return true;
+  },
+
   // 記録更新
   async updateRecord(recordId, category, minutes, text) {
     const { data, error } = await supabaseClient
@@ -144,7 +165,6 @@ const SupabaseDB = {
         category,
         minutes,
         text,
-        updated_at: new Date().toISOString()
       })
       .eq('id', recordId)
       .select()
@@ -162,7 +182,8 @@ const SupabaseDB = {
       .from('records')
       .select('*')
       .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
+      .order('recorded_at', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false });    
 
     if (startDate) query = query.gte('created_at', startDate);
     if (endDate) query = query.lte('created_at', endDate);
@@ -179,7 +200,8 @@ const SupabaseDB = {
       .select('*')
       .eq('user_id', userId)
       .eq('is_public', true)
-      .order('created_at', { ascending: false });
+      .order('recorded_at', { ascending: false, nullsFirst: false }) 
+      .order('created_at', { ascending: false });  
 
     const { data, error } = await query;
     if (error) throw error;
@@ -232,14 +254,14 @@ const SupabaseDB = {
           category,
           minutes,
           text,
-          created_at
+          recorded_at
         ),
         profiles (
           nickname,
           username
         )
       `)
-      .order('created_at', { ascending: false })
+      .order('recorded_at', { ascending: false, foreignTable: 'records' })
       .limit(50);
 
     if (filter === 'following') {
