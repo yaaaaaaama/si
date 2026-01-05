@@ -561,6 +561,18 @@ body {
     max-height: 250px;
 }
 
+.week-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px; /* 曜日ラベルのすぐ下に寄せる */
+}
+
+.week-nav-btn {
+  width: 48%;
+}
+
+
 /* 目標設定画面 */
 .view-header {
     display: flex;

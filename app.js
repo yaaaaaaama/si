@@ -134,20 +134,27 @@ class DataManager {
         return await window.SupabaseDB.getMyRecords(start.toISOString(), end.toISOString());
     }
 
-    async getWeekRecords() {
+    async getWeekRecords(weekOffset = 0) {
+        const { start, end } = this.getWeekRange(weekOffset);
+        return await window.SupabaseDB.getMyRecords(start.toISOString(), end.toISOString());
+    }
+
+    getWeekRange(weekOffset = 0) {
         const now = new Date();
 
-        // 月曜=0, 日曜=6 に変換
+        // 月曜=0, 日曜=6
         const day = (now.getDay() + 6) % 7;
 
         const start = new Date(now);
-        start.setDate(now.getDate() - day);
+        start.setDate(now.getDate() - day + weekOffset * 7);
         start.setHours(0, 0, 0, 0);
 
+        // end は「次の月曜 0:00 - 1ms」（Supabase側が lte なので inclusive で使う）
         const end = new Date(start);
         end.setDate(end.getDate() + 7);
+        end.setMilliseconds(end.getMilliseconds() - 1);
 
-        return await window.SupabaseDB.getMyRecords(start.toISOString(), end.toISOString());
+        return { start, end };
     }
 
     async getUserRecords(userId) {
@@ -374,6 +381,9 @@ class App {
         this.currentPostId = null;
         this.currentEditRecordId = null;
         this.currentViewUserId = null;
+        
+         this.weekOffset = 0;
+
         this.init();
     }
 
@@ -425,7 +435,6 @@ class App {
 
 
     setupEventListeners() {
-
 
         // メール確認画面からログイン画面へ戻る
         document.getElementById('back-to-login-btn').addEventListener('click', () => {
@@ -751,6 +760,22 @@ class App {
                 await this.showUserPage(this.currentViewUserId);
             }
         });
+        
+        const prevBtn = document.getElementById('week-prev-btn');
+        if (prevBtn) {
+        prevBtn.addEventListener('click', async () => {
+            this.weekOffset -= 1;
+            await this.updateDashboard();
+        });
+        }
+
+        const nextBtn = document.getElementById('week-next-btn');
+        if (nextBtn) {
+        nextBtn.addEventListener('click', async () => {
+            this.weekOffset += 1;
+            await this.updateDashboard();
+        });
+        }
     }
 
     async switchView(viewName) {
@@ -994,7 +1019,8 @@ class App {
         // goals をロードして保持
         this.dataManager.goals = await this.dataManager.getGoals();
 
-        const weekRecords = await this.dataManager.getWeekRecords();
+        const weekRecords = await this.dataManager.getWeekRecords(this.weekOffset);
+        const { start } = this.dataManager.getWeekRange(this.weekOffset);
 
         const totalMinutes = weekRecords.reduce((sum, r) => sum + r.minutes, 0);
         const hours = Math.floor(totalMinutes / 60);
@@ -1005,7 +1031,7 @@ class App {
         document.getElementById('streak-days').textContent = `連続${streak}日間`;
 
         this.updateProgressBars(weekRecords);
-        this.updateChart(weekRecords);
+        this.updateChart(weekRecords, start);
     }
 
     updateProgressBars(weekRecords) {
@@ -1045,19 +1071,34 @@ class App {
         }
     }
 
-    updateChart(weekRecords) {
+    updateChart(weekRecords, weekStartDate) {
         if (typeof Chart === 'undefined') return;
         if (!Array.isArray(weekRecords)) return;
 
         const days = ['月', '火', '水', '木', '金', '土', '日'];
+        const start = new Date(weekStartDate);
+        start.setHours(0, 0, 0, 0);
+
+        // 2段表示（Chart.jsは labels を配列にすると改行表示になる）
+        const labels = days.map((d, i) => {
+        const dt = new Date(start);
+        dt.setDate(start.getDate() + i);
+        return [d, `${dt.getMonth() + 1}/${dt.getDate()}`];
+        });
+
         const data = Array(7).fill(0);
 
         weekRecords.forEach(r => {
-            const recordDate = new Date(r.created_at);
-            if (isNaN(recordDate.getTime())) return;
+        const recordDate = new Date(r.recorded_at ?? r.created_at);
+        if (isNaN(recordDate.getTime())) return;
 
-            const dayIndex = (recordDate.getDay() + 6) % 7;
-            data[dayIndex] += (Number(r.minutes) || 0) / 60;
+        // 日単位で index を出す（表示してる週の start 基準）
+        const rd = new Date(recordDate.getFullYear(), recordDate.getMonth(), recordDate.getDate());
+        const sd = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+        const diff = Math.floor((rd - sd) / (1000 * 60 * 60 * 24));
+
+        if (diff < 0 || diff > 6) return;
+        data[diff] += (Number(r.minutes) || 0) / 60;
         });
 
         const canvas = document.getElementById('week-chart');
@@ -1072,12 +1113,12 @@ class App {
         this.chart = new Chart(ctx, {
             type: 'bar',
             data: {
-                labels: days,
-                datasets: [{
-                    label: '時間',
-                    data,
-                    backgroundColor: '#333'
-                }]
+            labels,
+            datasets: [{
+                label: '時間',
+                data,
+                backgroundColor: '#333'
+            }]
             },
             options: {
                 responsive: true,
