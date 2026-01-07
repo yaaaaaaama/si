@@ -448,6 +448,13 @@ body {
 }
 
 /* ダッシュボード */
+
+.dashboard-topbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
 .dashboard-header {
     background: white;
     border-radius: 15px;
@@ -700,13 +707,84 @@ body {
 
 #category-select,
 #manual-category-select,
-#edit-category-select {
+#edit-category-select,
+#na-category-select {
     width: 100%;
     padding: 12px;
     border: 2px solid #e0e0e0;
     border-radius: 10px;
     font-size: 16px;
     margin-bottom: 15px;
+}
+
+/* NA（次のやること） */
+.na-section {
+    background: white;
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+#na-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.na-item {
+    border: 1px solid #f0f0f0;
+    border-radius: 12px;
+    padding: 12px;
+}
+
+.na-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.na-category {
+    display: inline-block;
+    background: #f0f0f0;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    color: #333;
+}
+
+.na-time {
+    font-size: 12px;
+    color: #666;
+}
+
+.na-title {
+    font-size: 16px;
+    color: #333;
+    line-height: 1.4;
+}
+
+.na-empty {
+    color: #999;
+    text-align: center;
+}
+
+/* NAモーダル input */
+#na-title,
+#na-datetime {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+    font-size: 16px;
+    margin-bottom: 15px;
+}
+
+#na-title:focus,
+#na-datetime:focus {
+    outline: none;
+    border-color: #333;
 }
 
 .new-category {

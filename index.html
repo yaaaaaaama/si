@@ -109,6 +109,16 @@
         <!-- ダッシュボード画面 -->
         <div id="dashboard-view" class="view">
             <div class="container">
+                <div class="dashboard-topbar">
+                    <button type="button" class="secondary-btn" data-action="logout">ログアウト</button>
+                </div>
+                <div class="na-section">
+                    <div class="section-header">
+                        <h3>NA</h3>
+                    </div>
+                    <div id="na-list"></div>
+                </div>
+
                 <div class="dashboard-header">
                     <div class="week-total">
                         <h2>今週の累計時間</h2>
@@ -185,6 +195,32 @@
                 </label>
             </div>
             <button id="save-record-btn" class="primary-btn" disabled>保存</button>
+        </div>
+    </div>
+
+    <!-- 次のやること（NA）モーダル -->
+    <div id="na-modal" class="modal hidden">
+        <div class="modal-content">
+            <h3>次のやること</h3>
+            <h4>カテゴリ（必須）</h4>
+            <select id="na-category-select">
+                <option value="">選択してください</option>
+            </select>
+            <div class="new-category">
+                <input type="text" id="na-new-category-input" placeholder="新しいカテゴリ名" maxlength="20">
+                <button id="na-add-category-btn" class="secondary-btn">+ 追加</button>
+            </div>
+
+            <h4>やること（必須）</h4>
+            <input type="text" id="na-title" placeholder="例：英語の発音練習" maxlength="50">
+
+            <h4>何日の何時（任意）</h4>
+            <input type="datetime-local" id="na-datetime">
+
+            <div class="modal-actions">
+                <button id="na-skip-btn" class="secondary-btn">今回はなし</button>
+                <button id="na-save-btn" class="primary-btn" disabled>保存</button>
+            </div>
         </div>
     </div>
 

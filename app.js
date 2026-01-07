@@ -92,6 +92,26 @@ class DataManager {
         }
     }
 
+    // 次のやること（NA）
+    async addNextAction(category, title, scheduledAtIso = null) {
+        try {
+            await SupabaseDB.addNextAction(category, title, scheduledAtIso);
+            return true;
+        } catch (error) {
+            console.error('Add next action error:', error);
+            return false;
+        }
+    }
+
+    async getNextActions(limit = 3) {
+        try {
+            return await SupabaseDB.getMyNextActions(limit);
+        } catch (error) {
+            console.error('Get next actions error:', error);
+            return [];
+        }
+    }
+
 
 
     // 記録管理
@@ -381,6 +401,8 @@ class App {
         this.currentPostId = null;
         this.currentEditRecordId = null;
         this.currentViewUserId = null;
+        this.pendingViewAfterNa = null;
+        this.pendingViewAfterNa = null;
         
          this.weekOffset = 0;
 
@@ -589,13 +611,15 @@ class App {
             const isPublic = document.getElementById('post-public').checked;
 
             if (category && minutes > 0) {
-                await this.dataManager.addRecord(
+                const ok = await this.dataManager.addRecord(
                 category,
                 minutes,
                 text,
                 isPublic,
                 this.currentStopwatchRecordedAtIso || new Date().toISOString()
                 );
+
+                if (!ok) return;
 
                 this.hideCategoryModal();
                 await this.updateUI();
@@ -604,9 +628,73 @@ class App {
                 if (memoEl) memoEl.value = '';
                 this.currentStopwatchRecordedAtIso = null;
 
-                if (isPublic && text) this.switchView('community');
-                await this.updateUI();
+                // 保存後に「次のやること」モーダルを開く
+                // コミュニティへの遷移は NA 入力後（またはスキップ後）に行う
+                this.pendingViewAfterNa = (isPublic && text) ? 'community' : null;
+                await this.updateNaCategorySelect();
+                this.showNextActionModal();
             }
+        });
+
+        // NAモーダル
+        const naCategoryEl = document.getElementById('na-category-select');
+        const naTitleEl = document.getElementById('na-title');
+        const naSaveBtn = document.getElementById('na-save-btn');
+
+        const refreshNaSaveEnabled = () => {
+            const cat = naCategoryEl.value;
+            const title = naTitleEl.value.trim();
+            naSaveBtn.disabled = !(cat && title);
+        };
+
+        naCategoryEl.addEventListener('change', refreshNaSaveEnabled);
+        naTitleEl.addEventListener('input', refreshNaSaveEnabled);
+
+        document.getElementById('na-add-category-btn').addEventListener('click', async () => {
+            const name = document.getElementById('na-new-category-input').value.trim();
+            if (!name) return;
+            const ok = await this.dataManager.addCategory(name);
+            if (!ok) return;
+            await this.updateCategorySelect();
+            await this.updateManualCategorySelect();
+            await this.updateEditCategorySelect();
+            await this.updateNaCategorySelect();
+            document.getElementById('na-new-category-input').value = '';
+            document.getElementById('na-category-select').value = name;
+            refreshNaSaveEnabled();
+        });
+
+        document.getElementById('na-skip-btn').addEventListener('click', async () => {
+            this.hideNextActionModal();
+            if (this.pendingViewAfterNa) {
+                this.switchView(this.pendingViewAfterNa);
+                this.pendingViewAfterNa = null;
+            }
+            await this.updateUI();
+        });
+
+        document.getElementById('na-save-btn').addEventListener('click', async () => {
+            const category = document.getElementById('na-category-select').value;
+            const title = document.getElementById('na-title').value.trim();
+            const dtValue = document.getElementById('na-datetime').value;
+
+            if (!category || !title) return;
+
+            let scheduledAtIso = null;
+            if (dtValue) {
+                const d = new Date(dtValue);
+                if (!isNaN(d.getTime())) scheduledAtIso = d.toISOString();
+            }
+
+            const ok = await this.dataManager.addNextAction(category, title, scheduledAtIso);
+            if (!ok) return;
+
+            this.hideNextActionModal();
+            if (this.pendingViewAfterNa) {
+                this.switchView(this.pendingViewAfterNa);
+                this.pendingViewAfterNa = null;
+            }
+            await this.updateUI();
         });
 
         // 手動追加モーダル
@@ -645,15 +733,24 @@ class App {
                 const localMidnight = new Date(y, m - 1, d, 0, 0, 0);
                 createdAtIso = localMidnight.toISOString();
             }
-
             if (category && totalMinutes > 0) {
-                await this.dataManager.addRecord(category, totalMinutes, text, isPublic, createdAtIso);
+                const ok = await this.dataManager.addRecord(category, totalMinutes, text, isPublic, createdAtIso);
+                if (!ok) return;
+
                 this.hideManualAddModal();
                 await this.updateUI();
-                
-                if (isPublic && text) {
-                    this.switchView('community');
-                }
+
+                // 保存後に「次のやること」モーダルを開く（手動追加でも同様）
+                // コミュニティへの遷移は NA 入力後（またはスキップ後）に行う
+                this.pendingViewAfterNa = (isPublic && text) ? 'community' : null;
+
+                await this.updateNaCategorySelect();
+
+                // 直前に記録したカテゴリを初期選択
+                const naCat = document.getElementById('na-category-select');
+                if (naCat) naCat.value = category;
+
+                this.showNextActionModal();
             }
         });
 
@@ -776,6 +873,27 @@ class App {
             await this.updateDashboard();
         });
         }
+
+        // どこにボタンを移動しても data-action="logout" があれば動く
+        document.addEventListener('click', async (e) => {
+        const btn = e.target.closest('[data-action="logout"]');
+        if (!btn) return;
+
+        btn.disabled = true;
+        try {
+            await this.dataManager.logoutUser();
+
+            // 次回ログイン時に変なビューが残らないように戻す（任意だけどおすすめ）
+            await this.switchView('home');
+
+            this.showLogin();
+        } catch (err) {
+            console.error('Logout failed:', err);
+            alert('ログアウトに失敗しました');
+        } finally {
+            btn.disabled = false;
+        }
+        });
     }
 
     async switchView(viewName) {
@@ -987,6 +1105,19 @@ class App {
         });
     }
 
+    async updateNaCategorySelect() {
+        const select = document.getElementById('na-category-select');
+        if (!select) return;
+        select.innerHTML = '<option value="">選択してください</option>';
+        const categories = await this.dataManager.getCategories();
+        categories.forEach(cat => {
+            const option = document.createElement('option');
+            option.value = cat;
+            option.textContent = cat;
+            select.appendChild(option);
+        });
+    }
+
     async updateManualCategorySelect() {
         const select = document.getElementById('manual-category-select');
         select.innerHTML = '<option value="">選択してください</option>';
@@ -1016,6 +1147,8 @@ class App {
     }
 
     async updateDashboard() {
+        await this.updateNextActions();
+
         // goals をロードして保持
         this.dataManager.goals = await this.dataManager.getGoals();
 
@@ -1032,6 +1165,77 @@ class App {
 
         this.updateProgressBars(weekRecords);
         this.updateChart(weekRecords, start);
+    }
+
+    async updateNextActions() {
+        const list = document.getElementById('na-list');
+        if (!list) return;
+
+        const actions = await this.dataManager.getNextActions(3);
+        list.innerHTML = '';
+
+        if (!actions || actions.length === 0) {
+            const p = document.createElement('p');
+            p.className = 'na-empty';
+            p.textContent = 'なし';
+            list.appendChild(p);
+            return;
+        }
+
+        actions.forEach(a => {
+            const item = document.createElement('div');
+            item.className = 'na-item';
+
+            const dt = a.scheduled_at ? this.formatNaDateTime(a.scheduled_at) : '日時未定';
+
+            item.innerHTML = `
+                <div class="na-meta">
+                    <span class="na-category">${this.escapeHtml(a.category)}</span>
+                    <span class="na-time">${this.escapeHtml(dt)}</span>
+                </div>
+                <div class="na-title">${this.escapeHtml(a.title)}</div>
+            `;
+            list.appendChild(item);
+        });
+    }
+
+    formatNaDateTime(iso) {
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return '';
+        const m = d.getMonth() + 1;
+        const day = d.getDate();
+        const hh = String(d.getHours()).padStart(2, '0');
+        const mi = String(d.getMinutes()).padStart(2, '0');
+        return `${m}/${day} ${hh}:${mi}`;
+    }
+
+    escapeHtml(str) {
+        return String(str)
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#039;');
+    }
+
+    showNextActionModal() {
+        const modal = document.getElementById('na-modal');
+        if (!modal) return;
+        modal.classList.remove('hidden');
+        const titleEl = document.getElementById('na-title');
+        const dtEl = document.getElementById('na-datetime');
+        const catEl = document.getElementById('na-category-select');
+        const saveBtn = document.getElementById('na-save-btn');
+        if (titleEl) titleEl.value = '';
+        if (dtEl) dtEl.value = '';
+        if (catEl) catEl.value = '';
+        if (saveBtn) saveBtn.disabled = true;
+    }
+
+    hideNextActionModal() {
+        const modal = document.getElementById('na-modal');
+        if (!modal) return;
+        modal.classList.add('hidden');
     }
 
     updateProgressBars(weekRecords) {

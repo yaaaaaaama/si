@@ -48,7 +48,8 @@ const SupabaseAuth = {
   // ログアウト
   async signOut() {
     const { error } = await supabaseClient.auth.signOut();
-    return !error;
+    if (error) throw error;
+    return true;
   },
 
   // 現在のユーザーを取得
@@ -448,6 +449,45 @@ const SupabaseDB = {
 
     if (error) throw error;
     return data.map(f => f.profiles);
+  },
+
+  // 次のやること（NA）追加
+  async addNextAction(category, title, scheduledAtIso = null) {
+    const user = await SupabaseAuth.getCurrentUser();
+
+    const { data, error } = await supabaseClient
+      .from('next_actions')
+      .insert([
+        {
+          user_id: user.id,
+          category,
+          title,
+          scheduled_at: scheduledAtIso,
+          done: false
+        }
+      ])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  // 次のやること（NA）取得（未完了）
+  async getMyNextActions(limit = 3) {
+    const user = await SupabaseAuth.getCurrentUser();
+
+    const { data, error } = await supabaseClient
+      .from('next_actions')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('done', false)
+      .order('scheduled_at', { ascending: true, nullsFirst: false })
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) throw error;
+    return data;
   }
 };
 
