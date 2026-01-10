@@ -211,18 +211,51 @@ const SupabaseDB = {
   },
 
   // 目標設定
-  async setGoal(category, hours) {
+  async setGoal(category, weekdayHours, weekendHours, isActive) {
     const user = await SupabaseAuth.getCurrentUser();
+    const hasWeekSplit = typeof weekendHours === 'number' && !Number.isNaN(weekendHours);
+    const weekday = hasWeekSplit ? Number(weekdayHours) || 0 : 0;
+    const weekend = hasWeekSplit ? Number(weekendHours) || 0 : 0;
+    const totalHours = hasWeekSplit ? weekday * 5 + weekend * 2 : Number(weekdayHours) || 0;
+    const payload = {
+      user_id: user.id,
+      category,
+      hours: totalHours,
+      updated_at: new Date().toISOString()
+    };
+
+    if (hasWeekSplit) {
+      payload.weekday_hours = weekday;
+      payload.weekend_hours = weekend;
+    }
+    if (typeof isActive === 'boolean') {
+      payload.is_active = isActive;
+    }
+
     const { data, error } = await supabaseClient
       .from('goals')
-      .upsert([{
-        user_id: user.id,
-        category,
-        hours,
-        updated_at: new Date().toISOString()
-      }])
+      .upsert([payload], { onConflict: 'user_id,category' })
       .select()
       .single();
+
+    if (error && hasWeekSplit) {
+      const fallbackPayload = {
+        user_id: user.id,
+        category,
+        hours: totalHours,
+        updated_at: new Date().toISOString()
+      };
+      if (typeof isActive === 'boolean') {
+        fallbackPayload.is_active = isActive;
+      }
+      const { data: fallbackData, error: fallbackError } = await supabaseClient
+        .from('goals')
+        .upsert([fallbackPayload], { onConflict: 'user_id,category' })
+        .select()
+        .single();
+      if (fallbackError) throw fallbackError;
+      return fallbackData;
+    }
 
     if (error) throw error;
     return data;

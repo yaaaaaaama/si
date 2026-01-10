@@ -161,6 +161,36 @@
                         <button id="week-next-btn" class="secondary-btn week-nav-btn">→</button>
                     </div>
                 </div>
+
+                <div class="goal-register-section">
+                    <div class="section-header">
+                        <h3>目標管理</h3>
+                    </div>
+                    <div class="goal-register-form">
+                        <label class="goal-register-label">
+                            <span>カテゴリ</span>
+                            <select id="goal-category-select">
+                                <option value="">カテゴリを選択</option>
+                            </select>
+                        </label>
+                        <div class="goal-register-hours">
+                            <label class="goal-register-label">
+                                <span>平日（1日あたり）</span>
+                                <input type="number" id="goal-weekday-hours" min="0" max="24" step="0.5" value="0">
+                            </label>
+                            <label class="goal-register-label">
+                                <span>土日（1日あたり）</span>
+                                <input type="number" id="goal-weekend-hours" min="0" max="24" step="0.5" value="0">
+                            </label>
+                        </div>
+                        <label class="goal-flag">
+                            <input type="checkbox" id="goal-apply-flag" checked>
+                            <span>マイページに反映する</span>
+                        </label>
+                        <button id="goal-register-btn" class="primary-btn" disabled>登録</button>
+                    </div>
+                    <div id="goal-list" class="goal-list"></div>
+                </div>
             </div>
         </div>
 
@@ -185,7 +215,7 @@
                 <span class="nav-label">コミュニティ</span>
             </button>
             <button class="nav-btn" data-view="dashboard">
-                <span class="nav-label">ダッシュボード</span>
+                <span class="nav-label">マイページ</span>
             </button>
         </nav>
     </div>
@@ -230,8 +260,8 @@
             <h4>やること（必須）</h4>
             <input type="text" id="na-title" placeholder="例：英語の発音練習" maxlength="50">
 
-            <h4>何日の何時（任意）</h4>
-            <input type="datetime-local" id="na-datetime">
+            <h4>日付（任意）</h4>
+            <input type="date" id="na-datetime">
 
             <div class="modal-actions">
                 <button id="na-skip-btn" class="secondary-btn">今回はなし</button>
@@ -255,6 +285,7 @@
                 <label>
                     <span>分</span>
                     <select id="manual-minutes">
+                        <option value="0">0</option>
                         <option value="5">5</option>
                         <option value="10">10</option>
                         <option value="15">15</option>
@@ -305,6 +336,7 @@
                 <label>
                     <span>分</span>
                     <select id="edit-minutes">
+                        <option value="0">0</option>
                         <option value="5">5</option>
                         <option value="10">10</option>
                         <option value="15">15</option>

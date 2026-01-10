@@ -225,9 +225,9 @@ class DataManager {
     }
 
     // 目標管理
-    async setGoal(category, hours) {
+    async setGoal(category, weekdayHours, weekendHours, isActive) {
         try {
-            await SupabaseDB.setGoal(category, hours);
+            await SupabaseDB.setGoal(category, weekdayHours, weekendHours, isActive);
             return true;
         } catch (error) {
             console.error('Set goal error:', error);
@@ -240,7 +240,16 @@ class DataManager {
             const goals = await SupabaseDB.getGoals();
             const goalsObj = {};
             goals.forEach(g => {
-                goalsObj[g.category] = g.hours;
+                const weekdayHours = Number(g.weekday_hours ?? 0);
+                const weekendHours = Number(g.weekend_hours ?? 0);
+                const storedHours = Number(g.hours ?? 0);
+                const totalHours = storedHours > 0 ? storedHours : weekdayHours * 5 + weekendHours * 2;
+                goalsObj[g.category] = {
+                    weekdayHours,
+                    weekendHours,
+                    totalHours,
+                    isActive: g.is_active ?? true
+                };
             });
             return goalsObj;
         } catch (error) {
@@ -707,8 +716,9 @@ class App {
 
             let scheduledAtIso = null;
             if (dtValue) {
-                const d = new Date(dtValue);
-                if (!isNaN(d.getTime())) scheduledAtIso = d.toISOString();
+                const [y, m, d] = dtValue.split('-').map(Number);
+                const localDate = new Date(y, m - 1, d, 0, 0, 0);
+                if (!isNaN(localDate.getTime())) scheduledAtIso = localDate.toISOString();
             }
 
             const ok = await this.dataManager.addNextAction(category, title, scheduledAtIso);
@@ -799,6 +809,7 @@ class App {
             await this.showUserPage(this.currentViewUserId);
             } else {
             await this.updateUI();
+            await this.refreshCommunityIfActive();
             }
         } catch (e) {
             console.error('Delete record error:', e);
@@ -822,6 +833,7 @@ class App {
                     await this.showUserPage(this.currentViewUserId);
                 } else {
                     await this.updateUI();
+                    await this.refreshCommunityIfActive();
                 }
             }
         });
@@ -848,6 +860,72 @@ class App {
             this.saveGoals();
             this.switchView('dashboard');
         });
+
+        const goalCategorySelect = document.getElementById('goal-category-select');
+        const goalWeekdayInput = document.getElementById('goal-weekday-hours');
+        const goalWeekendInput = document.getElementById('goal-weekend-hours');
+        const goalApplyFlag = document.getElementById('goal-apply-flag');
+        const goalRegisterBtn = document.getElementById('goal-register-btn');
+
+        const applyGoalDefaults = () => {
+            if (!goalCategorySelect || !goalWeekdayInput || !goalWeekendInput) return;
+            const category = goalCategorySelect.value;
+            const goal = this.dataManager.goals?.[category];
+            if (goal) {
+                goalWeekdayInput.value = String(goal.weekdayHours ?? 0);
+                goalWeekendInput.value = String(goal.weekendHours ?? 0);
+                if (goalApplyFlag) goalApplyFlag.checked = goal.isActive !== false;
+            } else {
+                goalWeekdayInput.value = '0';
+                goalWeekendInput.value = '0';
+                if (goalApplyFlag) goalApplyFlag.checked = true;
+            }
+        };
+
+        const refreshGoalRegisterState = () => {
+            if (!goalRegisterBtn) return;
+            const category = goalCategorySelect ? goalCategorySelect.value : '';
+            const weekdayHours = goalWeekdayInput ? Number(goalWeekdayInput.value) : NaN;
+            const weekendHours = goalWeekendInput ? Number(goalWeekendInput.value) : NaN;
+            const isValid = Boolean(category) && Number.isFinite(weekdayHours) && Number.isFinite(weekendHours);
+            goalRegisterBtn.disabled = !isValid;
+        };
+
+        if (goalCategorySelect) {
+            goalCategorySelect.addEventListener('change', () => {
+                applyGoalDefaults();
+                refreshGoalRegisterState();
+            });
+        }
+        if (goalWeekdayInput) {
+            goalWeekdayInput.addEventListener('input', refreshGoalRegisterState);
+        }
+        if (goalWeekendInput) {
+            goalWeekendInput.addEventListener('input', refreshGoalRegisterState);
+        }
+        if (goalApplyFlag) {
+            goalApplyFlag.addEventListener('change', refreshGoalRegisterState);
+        }
+        if (goalRegisterBtn) {
+            goalRegisterBtn.addEventListener('click', async () => {
+                const category = goalCategorySelect ? goalCategorySelect.value : '';
+                const weekdayHours = goalWeekdayInput ? Number(goalWeekdayInput.value) || 0 : 0;
+                const weekendHours = goalWeekendInput ? Number(goalWeekendInput.value) || 0 : 0;
+                const isActive = goalApplyFlag ? goalApplyFlag.checked : true;
+                if (!category) return;
+                if (this.dataManager.goals?.[category]) {
+                    const ok = window.confirm('このカテゴリの目標は既に登録されています。上書きしますか？');
+                    if (!ok) return;
+                }
+                await this.dataManager.setGoal(category, weekdayHours, weekendHours, isActive);
+                await this.updateDashboard();
+                if (goalWeekdayInput) goalWeekdayInput.value = '0';
+                if (goalWeekendInput) goalWeekendInput.value = '0';
+                if (goalCategorySelect) goalCategorySelect.value = '';
+                if (goalApplyFlag) goalApplyFlag.checked = true;
+                refreshGoalRegisterState();
+            });
+        }
 
         // コミュニティタブ
         document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -1040,10 +1118,9 @@ class App {
 
     async showManualAddModal() {
         document.getElementById('manual-hours').value = 0;
-        document.getElementById('manual-minutes').value = 5;
+        document.getElementById('manual-minutes').value = 0;
 
-        document.getElementById('manual-date').value = this.toDatetimeLocalValue(new Date());
-
+        document.getElementById('manual-date').value = this.toDateValue(new Date());
         await this.updateManualCategorySelect();
         document.getElementById('manual-category-select').value = '';
         document.getElementById('manual-post-text').value = '';
@@ -1059,11 +1136,24 @@ class App {
     async showEditModal(record) {
         this.currentEditRecordId = record.id;
         
-        const hours = Math.floor(record.minutes / 60);
+        let hours = Math.floor(record.minutes / 60);
         const minutes = record.minutes % 60;
-        
-        // 分を5分単位に丸める
-        const roundedMinutes = Math.ceil(minutes / 5) * 5;
+
+        // 分を5分単位に繰り上げ（0は0のまま）
+        let roundedMinutes = Math.ceil(minutes / 5) * 5;
+
+        // 60になったら繰り上げて 00 分にする
+        if (roundedMinutes === 60) {
+            hours += 1;
+            roundedMinutes = 0;
+        }
+
+        // 表示上の上限（UIが 0-23 時なので安全側で丸め）
+        if (hours > 23) {
+            hours = 23;
+            roundedMinutes = 55;
+        }
+
         
         document.getElementById('edit-hours').value = hours;
         document.getElementById('edit-minutes').value = roundedMinutes >= 60 ? 55 : (roundedMinutes || 5);
@@ -1243,11 +1333,20 @@ class App {
         await this.updateDashboard();
     }
 
+    async refreshCommunityIfActive() {
+        const view = document.getElementById('community-view');
+        if (!view || !view.classList.contains('active')) return;
+        const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'recommended';
+        await this.updateCommunity(activeTab);
+    }
+
     async updateDashboard() {
         await this.updateNextActions();
 
+        this.dataManager.categories = await this.dataManager.getCategories();
         // goals をロードして保持
         this.dataManager.goals = await this.dataManager.getGoals();
+        this.updateGoalRegistrationUI();
 
         const weekRecords = await this.dataManager.getWeekRecords(this.weekOffset);
         const { start } = this.dataManager.getWeekRange(this.weekOffset);
@@ -1301,9 +1400,7 @@ class App {
         if (isNaN(d.getTime())) return '';
         const m = d.getMonth() + 1;
         const day = d.getDate();
-        const hh = String(d.getHours()).padStart(2, '0');
-        const mi = String(d.getMinutes()).padStart(2, '0');
-        return `${m}/${day} ${hh}:${mi}`;
+        return `${m}/${day}`;
     }
 
     escapeHtml(str) {
@@ -1335,6 +1432,58 @@ class App {
         modal.classList.add('hidden');
     }
 
+    formatGoalHours(value) {
+        const num = Number(value) || 0;
+        if (Number.isInteger(num)) return String(num);
+        return num.toFixed(1).replace(/\.0$/, '');
+    }
+
+    updateGoalRegistrationUI() {
+        const select = document.getElementById('goal-category-select');
+        if (select) {
+            const current = select.value;
+            select.innerHTML = '<option value="">カテゴリを選択</option>';
+            (this.dataManager.categories || []).forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat;
+                option.textContent = cat;
+                select.appendChild(option);
+            });
+            if (current && (this.dataManager.categories || []).includes(current)) {
+                select.value = current;
+            }
+        }
+
+        const list = document.getElementById('goal-list');
+        if (!list) return;
+        const entries = Object.entries(this.dataManager.goals || {});
+        list.innerHTML = '';
+
+        if (entries.length === 0) {
+            list.innerHTML = '<p style="color: #999; text-align: center;">目標は未登録です</p>';
+            return;
+        }
+
+        entries.forEach(([category, goal]) => {
+            const item = document.createElement('div');
+            item.className = 'goal-list-item';
+            const weekday = this.formatGoalHours(goal.weekdayHours ?? 0);
+            const weekend = this.formatGoalHours(goal.weekendHours ?? 0);
+            const total = this.formatGoalHours(goal.totalHours ?? 0);
+            const status = goal.isActive === false ? '非表示' : '反映中';
+            item.innerHTML = `
+                <div class="goal-list-title">${this.escapeHtml(category)}</div>
+                <div class="goal-list-meta">
+                    <span>平日 ${weekday}時間/日</span>
+                    <span>土日 ${weekend}時間/日</span>
+                    <span>週合計 ${total}時間</span>
+                    <span>マイページ ${status}</span>
+                </div>
+            `;
+            list.appendChild(item);
+        });
+    }
+
     updateProgressBars(weekRecords) {
         const categoryTotals = {};
         weekRecords.forEach(r => {
@@ -1346,7 +1495,9 @@ class App {
         
         Object.entries(categoryTotals).sort((a, b) => b[1] - a[1]).forEach(([cat, mins]) => {
             const hours = mins / 60;
-            const goalHours = this.dataManager.goals[cat] || 0;
+            const goal = this.dataManager.goals[cat];
+            if (goal && goal.isActive === false) return;
+            const goalHours = goal?.totalHours || 0;
             const percentage = goalHours > 0 ? Math.min(Math.round((hours / goalHours) * 100), 100) : 0;
             
             let fillClass = 'low';
@@ -1446,7 +1597,7 @@ class App {
         this.dataManager.categories.forEach(cat => {
             const item = document.createElement('div');
             item.className = 'goal-item';
-            const currentGoal = this.dataManager.goals[cat] || 0;
+            const currentGoal = this.dataManager.goals[cat]?.totalHours || 0;
             item.innerHTML = `
                 <span>${cat}</span>
                 <div>
@@ -1512,6 +1663,15 @@ class App {
                         <div class="post-time">${timeText}</div>
                     </div>
                 </div>
+                ${post.isMyPost ? `
+                    <div class="post-menu">
+                        <button class="post-menu-btn" aria-label="投稿メニュー">⋯</button>
+                        <div class="post-menu-dropdown hidden">
+                            <button class="post-menu-item" data-action="edit">編集</button>
+                            <button class="post-menu-item danger" data-action="delete">削除</button>
+                        </div>
+                    </div>
+                ` : ''}
             </div>
             <div class="post-content">
                 <div class="post-category">${post.category}</div>
@@ -1549,6 +1709,52 @@ class App {
         commentBtn.addEventListener('click', () => {
             this.showCommentModal(post.id);
         });
+
+        if (post.isMyPost) {
+            const menuBtn = card.querySelector('.post-menu-btn');
+            const menu = card.querySelector('.post-menu-dropdown');
+            const menuItems = card.querySelectorAll('.post-menu-item');
+
+            if (menuBtn && menu) {
+                menuBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    menu.classList.toggle('hidden');
+                });
+            }
+
+            menuItems.forEach(item => {
+                item.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    const action = item.dataset.action;
+                    if (action === 'edit') {
+                        this.showEditModal({
+                            id: post.recordId,
+                            minutes: post.minutes,
+                            category: post.category,
+                            text: post.text || ''
+                        });
+                        menu.classList.add('hidden');
+                        return;
+                    }
+                    if (action === 'delete') {
+                        const ok = window.confirm('この投稿を削除します。よろしいですか？');
+                        if (!ok) return;
+                        await this.dataManager.deleteRecord(post.recordId);
+                        menu.classList.add('hidden');
+                        await this.updateUI();
+                        const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'recommended';
+                        await this.updateCommunity(activeTab);
+                    }
+                });
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!menu || menu.classList.contains('hidden')) return;
+                if (!card.contains(e.target)) {
+                    menu.classList.add('hidden');
+                }
+            });
+        }
 
         return card;
     }
