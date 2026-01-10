@@ -351,6 +351,54 @@ body {
     background: #e0e0e0;
 }
 
+/* Home: category + todo */
+.home-task {
+  margin: 16px 0 8px;
+  text-align: left;
+}
+
+.home-category-select {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  font-size: 16px;
+  margin-bottom: 12px;
+  background: #fff;
+}
+
+.home-todo-box {
+  border: 1px solid #f0f0f0;
+  border-radius: 14px;
+  padding: 12px;
+  background: #fafafa;
+}
+
+.home-todo-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.home-todo-label {
+  font-size: 13px;
+  color: #666;
+}
+
+.home-todo-text {
+  font-size: 16px;
+  color: #333;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.home-use-todo-btn {
+  padding: 8px 12px;
+  border-radius: 10px;
+}
+
 /* ユーザーページ */
 .user-profile {
     background: white;

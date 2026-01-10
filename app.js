@@ -112,7 +112,14 @@ class DataManager {
         }
     }
 
-
+    async getNextActionByCategory(category) {
+        try {
+            return await SupabaseDB.getNextActionByCategory(category);
+        } catch (error) {
+            console.error('Get next action by category error:', error);
+            return null;
+        }
+    }
 
     // 記録管理
     async addRecord(category, minutes, text = '', isPublic = true, createdAtIso = null) {
@@ -192,7 +199,7 @@ class DataManager {
             
             if (records.length === 0) return 0;
             
-            const dates = [...new Set(records.map(r => new Date(r.created_at).toDateString()))];
+            const dates = [...new Set(records.map(r => new Date(r.recorded_at).toDateString()))];
             dates.sort((a, b) => new Date(b) - new Date(a));
             
             let streak = 0;
@@ -444,6 +451,7 @@ class App {
         document.getElementById('email-confirmation-screen').classList.add('hidden');
         document.getElementById('app-screen').classList.remove('hidden');
         this.updateUI();
+        this.updateHomeCategorySelect();
     }
 
     toDatetimeLocalValue(d) {
@@ -549,8 +557,6 @@ class App {
         const memoEl = document.getElementById('stopwatch-memo');
 
         if (!this.stopwatch.isRunning) {
-            if (memoEl && this.stopwatch.elapsedTime === 0) memoEl.value = '';
-
             this.stopwatch.start();
             document.getElementById('start-btn').textContent = '一時停止';
             document.getElementById('start-btn').classList.add('paused');
@@ -562,6 +568,23 @@ class App {
             document.getElementById('start-btn').textContent = '再開';
         }
         });
+
+        // Home：カテゴリ選択で「やること」を表示
+        const homeCat = document.getElementById('home-category-select');
+        const useTodoBtn = document.getElementById('home-use-todo-btn');
+
+        if (homeCat) {
+          homeCat.addEventListener('change', async (e) => {
+            const category = e.target.value;
+            await this.renderHomeTodo(category);
+          });
+        }
+
+        if (useTodoBtn) {
+          useTodoBtn.addEventListener('click', () => {
+            this.applyHomeTodoToMemo();
+          });
+        }
 
         document.getElementById('stop-btn').addEventListener('click', () => {
         const minutes = this.stopwatch.getMinutes();
@@ -593,6 +616,7 @@ class App {
             if (name) {
                 await this.dataManager.addCategory(name);
                 await this.updateCategorySelect();
+                await this.updateHomeCategorySelect();
                 document.getElementById('new-category-input').value = '';
                 // 追加したカテゴリを自動選択
                 document.getElementById('category-select').value = name;
@@ -656,6 +680,7 @@ class App {
             const ok = await this.dataManager.addCategory(name);
             if (!ok) return;
             await this.updateCategorySelect();
+            await this.updateHomeCategorySelect();
             await this.updateManualCategorySelect();
             await this.updateEditCategorySelect();
             await this.updateNaCategorySelect();
@@ -703,6 +728,7 @@ class App {
             if (name) {
                 await this.dataManager.addCategory(name);
                 await this.updateManualCategorySelect();
+                await this.updateHomeCategorySelect();
                 document.getElementById('manual-new-category-input').value = '';
                 document.getElementById('manual-category-select').value = name;
                 document.getElementById('manual-save-btn').disabled = false;
@@ -1103,6 +1129,77 @@ class App {
             option.textContent = cat;
             select.appendChild(option);
         });
+    }
+
+    async updateHomeCategorySelect() {
+      const select = document.getElementById('home-category-select');
+      if (!select) return;
+
+      const current = select.value;
+      select.innerHTML = '<option value="">カテゴリを選択</option>';
+
+      const categories = await this.dataManager.getCategories();
+      categories.forEach(cat => {
+        const option = document.createElement('option');
+        option.value = cat;
+        option.textContent = cat;
+        select.appendChild(option);
+      });
+
+      // 可能なら選択状態を維持
+      if (current && categories.includes(current)) {
+        select.value = current;
+      }
+    }
+
+    async renderHomeTodo(category) {
+      const box = document.getElementById('home-todo-box');
+      const textEl = document.getElementById('home-todo-text');
+      const btn = document.getElementById('home-use-todo-btn');
+      if (!box || !textEl || !btn) return;
+
+      if (!category) {
+        box.classList.add('hidden');
+        textEl.textContent = '';
+        btn.disabled = true;
+        btn.dataset.todo = '';
+        return;
+      }
+
+      const na = await this.dataManager.getNextActionByCategory(category);
+
+      box.classList.remove('hidden');
+
+      const todo = na?.title ? String(na.title) : '';
+      if (!todo) {
+        textEl.textContent = '未設定';
+        btn.disabled = true;
+        btn.dataset.todo = '';
+        return;
+      }
+
+      textEl.textContent = todo;
+      btn.disabled = false;
+      btn.dataset.todo = todo;
+    }
+
+    applyHomeTodoToMemo() {
+      const btn = document.getElementById('home-use-todo-btn');
+      const memoEl = document.getElementById('stopwatch-memo');
+      if (!btn || !memoEl) return;
+
+      const todo = (btn.dataset.todo || '').trim();
+      if (!todo) return;
+
+      const current = (memoEl.value || '').trim();
+      if (current && current !== todo) {
+        const ok = window.confirm('メモを上書きします。よろしいですか？');
+        if (!ok) return;
+      }
+
+      memoEl.value = todo;
+
+      memoEl.classList.remove('hidden');
     }
 
     async updateNaCategorySelect() {

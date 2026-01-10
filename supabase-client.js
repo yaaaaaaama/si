@@ -451,9 +451,37 @@ const SupabaseDB = {
     return data.map(f => f.profiles);
   },
 
-  // 次のやること（NA）追加
+  // 次のやること（NA）追加（同カテゴリは上書き）
   async addNextAction(category, title, scheduledAtIso = null) {
     const user = await SupabaseAuth.getCurrentUser();
+
+    // 同じカテゴリの未完了NAがあれば上書き、なければ新規追加（全消し前提で重複は想定しない）
+    const { data: existing, error: findError } = await supabaseClient
+      .from('next_actions')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('category', category)
+      .eq('done', false)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (findError) throw findError;
+
+    if (existing && existing.length > 0) {
+      const { data: updated, error: updateError } = await supabaseClient
+        .from('next_actions')
+        .update({
+          title,
+          scheduled_at: scheduledAtIso,
+          done: false
+        })
+        .eq('id', existing[0].id)
+        .select()
+        .single();
+
+      if (updateError) throw updateError;
+      return updated;
+    }
 
     const { data, error } = await supabaseClient
       .from('next_actions')
@@ -471,6 +499,23 @@ const SupabaseDB = {
 
     if (error) throw error;
     return data;
+  },
+
+  async getNextActionByCategory(category) {
+    const user = await SupabaseAuth.getCurrentUser();
+
+    const { data, error } = await supabaseClient
+      .from('next_actions')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('category', category)
+      .eq('done', false)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data; // ない場合は null
   },
 
   // 次のやること（NA）取得（未完了）

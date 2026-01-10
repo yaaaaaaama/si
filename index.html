@@ -64,6 +64,22 @@
             <div class="container">
                 <div class="stopwatch-section">
                     <div class="stopwatch-display" id="stopwatch">00:00:00</div>
+                    <!-- ホーム：カテゴリ選択 + やること表示 -->
+                    <div class="home-task">
+                    <select id="home-category-select" class="home-category-select">
+                        <option value="">カテゴリを選択</option>
+                    </select>
+
+                    <div id="home-todo-box" class="home-todo-box hidden">
+                        <div class="home-todo-head">
+                        <div class="home-todo-label">やること</div>
+                        <button id="home-use-todo-btn" class="secondary-btn home-use-todo-btn" type="button">
+                            メモに反映
+                        </button>
+                        </div>
+                        <div id="home-todo-text" class="home-todo-text"></div>
+                    </div>
+                    </div>
                     <div class="stopwatch-controls">
                         <button id="start-btn" class="control-btn start-btn">開始</button>
                         <button id="stop-btn" class="control-btn stop-btn" disabled>停止</button>
