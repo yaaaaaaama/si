@@ -84,7 +84,7 @@ const SupabaseDB = {
     const user = await SupabaseAuth.getCurrentUser();
     const { data, error } = await supabaseClient
       .from('categories')
-      .insert([{ user_id: user.id, name }])
+      .upsert([{ user_id: user.id, name }], { onConflict: 'user_id,name' })
       .select()
       .single();
 

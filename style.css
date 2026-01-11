@@ -625,9 +625,16 @@ body {
     border-bottom: none;
 }
 
+.goal-list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 4px;
+}
+
 .goal-list-title {
     font-weight: bold;
-    margin-bottom: 4px;
 }
 
 .goal-list-meta {
@@ -636,6 +643,38 @@ body {
     gap: 8px;
     color: #666;
     font-size: 13px;
+}
+
+.goal-edit-btn {
+    border: none;
+    background: #f0f0f0;
+    color: #333;
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.goal-edit-btn:hover {
+    background: #e0e0e0;
+}
+
+.modal-content #goal-edit-category {
+    width: 100%;
+    padding: 8px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 16px;
+}
+
+.modal-content #goal-edit-category:focus {
+    outline: none;
+    border-color: #333;
+}
+
+#goal-add-btn {
+    margin-top: 12px;
+    width: 100%;
 }
 
 .section-header {
@@ -660,7 +699,9 @@ body {
 .progress-header {
     display: flex;
     justify-content: space-between;
+    align-items: baseline;
     margin-bottom: 8px;
+    gap: 8px;
 }
 
 .category-name {
@@ -670,6 +711,7 @@ body {
 .progress-stats {
     color: #666;
     font-size: 14px;
+    text-align: right;
 }
 
 .progress-bar {
@@ -720,6 +762,12 @@ body {
 
 .week-nav-btn {
   width: 48%;
+}
+
+.week-total-meta {
+    font-size: 13px;
+    color: #666;
+    margin-top: 4px;
 }
 
 

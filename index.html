@@ -138,17 +138,11 @@
                     <div class="week-total">
                         <h2>今週の累計時間</h2>
                         <div class="large-number" id="week-total">0時間0分</div>
+                        <div class="week-total-meta" id="week-goal-progress"></div>
                     </div>
                     <div class="streak">
                         <span id="streak-days">連続0日間</span>
                     </div>
-                </div>
-
-                <div class="goal-section">
-                    <div class="section-header">
-                        <h3>週間目標</h3>
-                    </div>
-                    <div id="progress-list"></div>
                 </div>
 
                 <div class="chart-section">
@@ -161,44 +155,19 @@
                     </div>
                 </div>
 
+                <div class="goal-section">
+                    <div class="section-header">
+                        <h3>週間目標</h3>
+                    </div>
+                    <div id="progress-list"></div>
+                </div>
+
                 <div class="goal-register-section">
                     <div class="section-header">
                         <h3>目標管理</h3>
                     </div>
-                    <div class="goal-register-form">
-                        <label class="goal-register-label">
-                            <span>カテゴリ</span>
-                            <select id="goal-category-select">
-                                <option value="">カテゴリを選択</option>
-                            </select>
-                        </label>
-                        <div class="goal-register-hours">
-                            <label class="goal-register-label">
-                                <span>平日（1日あたり）</span>
-                                <div class="goal-time-select">
-                                    <select id="goal-weekday-hours"></select>
-                                    <span>時間</span>
-                                    <select id="goal-weekday-minutes"></select>
-                                    <span>分</span>
-                                </div>
-                            </label>
-                            <label class="goal-register-label">
-                                <span>土日（1日あたり）</span>
-                                <div class="goal-time-select">
-                                    <select id="goal-weekend-hours"></select>
-                                    <span>時間</span>
-                                    <select id="goal-weekend-minutes"></select>
-                                    <span>分</span>
-                                </div>
-                            </label>
-                        </div>
-                        <label class="goal-flag">
-                            <input type="checkbox" id="goal-apply-flag" checked>
-                            <span>マイページに反映する</span>
-                        </label>
-                        <button id="goal-register-btn" class="primary-btn" disabled>登録</button>
-                    </div>
                     <div id="goal-list" class="goal-list"></div>
+                    <button id="goal-add-btn" class="primary-btn">登録</button>
                 </div>
             </div>
         </div>
@@ -237,10 +206,6 @@
             <select id="category-select">
                 <option value="">選択してください</option>
             </select>
-            <div class="new-category">
-                <input type="text" id="new-category-input" placeholder="新しいカテゴリ名" maxlength="20">
-                <button id="add-category-btn" class="secondary-btn">+ 追加</button>
-            </div>
             <h4>一言（任意）</h4>
             <textarea id="post-text" placeholder="今日の感想を書く..." maxlength="100"></textarea>
             <h4>次のやること（任意）</h4>
@@ -334,10 +299,6 @@
             <select id="manual-category-select">
                 <option value="">選択してください</option>
             </select>
-            <div class="new-category">
-                <input type="text" id="manual-new-category-input" placeholder="新しいカテゴリ名" maxlength="20">
-                <button id="manual-add-category-btn" class="secondary-btn">+ 追加</button>
-            </div>
             <h4>一言（任意）</h4>
             <textarea id="manual-post-text" placeholder="今日の感想を書く..." maxlength="100"></textarea>
             <div id="manual-na-section" class="manual-na-section">
@@ -358,6 +319,45 @@
                     <button id="manual-na-skip-btn" class="secondary-btn">今回はなし</button>
                     <button id="manual-na-save-btn" class="primary-btn" disabled>保存</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 目標編集モーダル -->
+    <div id="goal-edit-modal" class="modal hidden">
+        <div class="modal-content">
+            <h3 id="goal-edit-title">目標を登録</h3>
+            <label class="goal-register-label">
+                <span>カテゴリ</span>
+                <input type="text" id="goal-edit-category" placeholder="カテゴリ名" maxlength="20">
+            </label>
+            <div class="goal-register-hours">
+                <label class="goal-register-label">
+                    <span>平日（1日あたり）</span>
+                    <div class="goal-time-select">
+                        <select id="goal-edit-weekday-hours"></select>
+                        <span>時間</span>
+                        <select id="goal-edit-weekday-minutes"></select>
+                        <span>分</span>
+                    </div>
+                </label>
+                <label class="goal-register-label">
+                    <span>土日（1日あたり）</span>
+                    <div class="goal-time-select">
+                        <select id="goal-edit-weekend-hours"></select>
+                        <span>時間</span>
+                        <select id="goal-edit-weekend-minutes"></select>
+                        <span>分</span>
+                    </div>
+                </label>
+            </div>
+            <label class="goal-flag">
+                <input type="checkbox" id="goal-edit-apply-flag" checked>
+                <span>マイページに反映する</span>
+            </label>
+            <div class="modal-actions">
+                <button id="goal-edit-cancel-btn" class="secondary-btn">キャンセル</button>
+                <button id="goal-edit-save-btn" class="primary-btn" disabled>保存</button>
             </div>
         </div>
     </div>
