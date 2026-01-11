@@ -211,16 +211,16 @@ const SupabaseDB = {
   },
 
   // 目標設定
-  async setGoal(category, weekdayHours, weekendHours, isActive) {
+  async setGoal(category, weekdayMinutes, weekendMinutes, isActive) {
     const user = await SupabaseAuth.getCurrentUser();
-    const hasWeekSplit = typeof weekendHours === 'number' && !Number.isNaN(weekendHours);
-    const weekday = hasWeekSplit ? Number(weekdayHours) || 0 : 0;
-    const weekend = hasWeekSplit ? Number(weekendHours) || 0 : 0;
-    const totalHours = hasWeekSplit ? weekday * 5 + weekend * 2 : Number(weekdayHours) || 0;
+    const hasWeekSplit = typeof weekendMinutes === 'number' && !Number.isNaN(weekendMinutes);
+    const weekday = hasWeekSplit ? Math.round(Number(weekdayMinutes) || 0) : 0;
+    const weekend = hasWeekSplit ? Math.round(Number(weekendMinutes) || 0) : 0;
+    const totalMinutes = hasWeekSplit ? weekday * 5 + weekend * 2 : Math.round(Number(weekdayMinutes) || 0);
     const payload = {
       user_id: user.id,
       category,
-      hours: totalHours,
+      hours: totalMinutes,
       updated_at: new Date().toISOString()
     };
 
@@ -242,7 +242,7 @@ const SupabaseDB = {
       const fallbackPayload = {
         user_id: user.id,
         category,
-        hours: totalHours,
+        hours: totalMinutes,
         updated_at: new Date().toISOString()
       };
       if (typeof isActive === 'boolean') {

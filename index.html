@@ -92,6 +92,12 @@
                     ></textarea>
                     <button id="manual-add-btn" class="manual-add-btn">+ 手動で記録を追加</button>
                 </div>
+                <div class="na-section">
+                    <div class="section-header">
+                        <h3>NA</h3>
+                    </div>
+                    <div id="na-list"></div>
+                </div>
             </div>
         </div>
 
@@ -128,13 +134,6 @@
                 <div class="dashboard-topbar">
                     <button type="button" class="secondary-btn" data-action="logout">ログアウト</button>
                 </div>
-                <div class="na-section">
-                    <div class="section-header">
-                        <h3>NA</h3>
-                    </div>
-                    <div id="na-list"></div>
-                </div>
-
                 <div class="dashboard-header">
                     <div class="week-total">
                         <h2>今週の累計時間</h2>
@@ -176,11 +175,21 @@
                         <div class="goal-register-hours">
                             <label class="goal-register-label">
                                 <span>平日（1日あたり）</span>
-                                <input type="number" id="goal-weekday-hours" min="0" max="24" step="0.5" value="0">
+                                <div class="goal-time-select">
+                                    <select id="goal-weekday-hours"></select>
+                                    <span>時間</span>
+                                    <select id="goal-weekday-minutes"></select>
+                                    <span>分</span>
+                                </div>
                             </label>
                             <label class="goal-register-label">
                                 <span>土日（1日あたり）</span>
-                                <input type="number" id="goal-weekend-hours" min="0" max="24" step="0.5" value="0">
+                                <div class="goal-time-select">
+                                    <select id="goal-weekend-hours"></select>
+                                    <span>時間</span>
+                                    <select id="goal-weekend-minutes"></select>
+                                    <span>分</span>
+                                </div>
                             </label>
                         </div>
                         <label class="goal-flag">
@@ -280,13 +289,38 @@
             <div class="time-selector">
                 <label>
                     <span>時間</span>
-                    <input type="number" id="manual-hours" min="0" max="23" value="0">
+                    <select id="manual-hours">
+                        <option value="0">0</option>
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                        <option value="5">5</option>
+                        <option value="6">6</option>
+                        <option value="7">7</option>
+                        <option value="8">8</option>
+                        <option value="9">9</option>
+                        <option value="10">10</option>
+                        <option value="11">11</option>
+                        <option value="12">12</option>
+                        <option value="13">13</option>
+                        <option value="14">14</option>
+                        <option value="15">15</option>
+                        <option value="16">16</option>
+                        <option value="17">17</option>
+                        <option value="18">18</option>
+                        <option value="19">19</option>
+                        <option value="20">20</option>
+                        <option value="21">21</option>
+                        <option value="22">22</option>
+                        <option value="23">23</option>
+                    </select>
                 </label>
                 <label>
                     <span>分</span>
                     <select id="manual-minutes">
-                        <option value="0">0</option>
-                        <option value="5">5</option>
+                        <option value="0">00</option>
+                        <option value="5">05</option>
                         <option value="10">10</option>
                         <option value="15">15</option>
                         <option value="20">20</option>

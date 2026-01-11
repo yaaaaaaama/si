@@ -225,9 +225,9 @@ class DataManager {
     }
 
     // 目標管理
-    async setGoal(category, weekdayHours, weekendHours, isActive) {
+    async setGoal(category, weekdayMinutes, weekendMinutes, isActive) {
         try {
-            await SupabaseDB.setGoal(category, weekdayHours, weekendHours, isActive);
+            await SupabaseDB.setGoal(category, weekdayMinutes, weekendMinutes, isActive);
             return true;
         } catch (error) {
             console.error('Set goal error:', error);
@@ -240,14 +240,14 @@ class DataManager {
             const goals = await SupabaseDB.getGoals();
             const goalsObj = {};
             goals.forEach(g => {
-                const weekdayHours = Number(g.weekday_hours ?? 0);
-                const weekendHours = Number(g.weekend_hours ?? 0);
-                const storedHours = Number(g.hours ?? 0);
-                const totalHours = storedHours > 0 ? storedHours : weekdayHours * 5 + weekendHours * 2;
+                const weekdayMinutes = Number(g.weekday_hours ?? 0);
+                const weekendMinutes = Number(g.weekend_hours ?? 0);
+                const storedMinutes = Number(g.hours ?? 0);
+                const totalMinutes = storedMinutes > 0 ? storedMinutes : weekdayMinutes * 5 + weekendMinutes * 2;
                 goalsObj[g.category] = {
-                    weekdayHours,
-                    weekendHours,
-                    totalHours,
+                    weekdayMinutes,
+                    weekendMinutes,
+                    totalMinutes,
                     isActive: g.is_active ?? true
                 };
             });
@@ -862,22 +862,65 @@ class App {
         });
 
         const goalCategorySelect = document.getElementById('goal-category-select');
-        const goalWeekdayInput = document.getElementById('goal-weekday-hours');
-        const goalWeekendInput = document.getElementById('goal-weekend-hours');
+        const goalWeekdayHours = document.getElementById('goal-weekday-hours');
+        const goalWeekdayMinutes = document.getElementById('goal-weekday-minutes');
+        const goalWeekendHours = document.getElementById('goal-weekend-hours');
+        const goalWeekendMinutes = document.getElementById('goal-weekend-minutes');
         const goalApplyFlag = document.getElementById('goal-apply-flag');
         const goalRegisterBtn = document.getElementById('goal-register-btn');
 
+        const setupGoalTimeSelects = (hoursEl, minutesEl) => {
+            if (!hoursEl || !minutesEl) return;
+            hoursEl.innerHTML = '';
+            for (let h = 0; h <= 23; h++) {
+                const opt = document.createElement('option');
+                opt.value = String(h);
+                opt.textContent = String(h);
+                hoursEl.appendChild(opt);
+            }
+            minutesEl.innerHTML = '';
+            [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].forEach((m) => {
+                const opt = document.createElement('option');
+                opt.value = String(m);
+                opt.textContent = String(m).padStart(2, '0');
+                minutesEl.appendChild(opt);
+            });
+            hoursEl.value = '0';
+            minutesEl.value = '0';
+        };
+
+        setupGoalTimeSelects(goalWeekdayHours, goalWeekdayMinutes);
+        setupGoalTimeSelects(goalWeekendHours, goalWeekendMinutes);
+
+        const getGoalMinutesValue = (hoursEl, minutesEl) => {
+            const hours = Number(hoursEl?.value ?? 0);
+            const minutes = Number(minutesEl?.value ?? 0);
+            const safeHours = Number.isFinite(hours) ? hours : 0;
+            const safeMinutes = Number.isFinite(minutes) ? minutes : 0;
+            return safeHours * 60 + safeMinutes;
+        };
+
+        const setGoalTimeValue = (hoursEl, minutesEl, value) => {
+            if (!hoursEl || !minutesEl) return;
+            const total = Math.max(0, Math.round(Number(value) || 0));
+            const hours = Math.floor(total / 60);
+            const minutes = total % 60;
+            const snapped = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].includes(minutes) ? minutes : 0;
+            hoursEl.value = String(Math.min(Math.max(hours, 0), 23));
+            minutesEl.value = String(snapped);
+        };
+
         const applyGoalDefaults = () => {
-            if (!goalCategorySelect || !goalWeekdayInput || !goalWeekendInput) return;
+            if (!goalCategorySelect) return;
             const category = goalCategorySelect.value;
             const goal = this.dataManager.goals?.[category];
             if (goal) {
-                goalWeekdayInput.value = String(goal.weekdayHours ?? 0);
-                goalWeekendInput.value = String(goal.weekendHours ?? 0);
+                setGoalTimeValue(goalWeekdayHours, goalWeekdayMinutes, goal.weekdayMinutes ?? 0);
+                setGoalTimeValue(goalWeekendHours, goalWeekendMinutes, goal.weekendMinutes ?? 0);
                 if (goalApplyFlag) goalApplyFlag.checked = goal.isActive !== false;
             } else {
-                goalWeekdayInput.value = '0';
-                goalWeekendInput.value = '0';
+                setGoalTimeValue(goalWeekdayHours, goalWeekdayMinutes, 0);
+                setGoalTimeValue(goalWeekendHours, goalWeekendMinutes, 0);
                 if (goalApplyFlag) goalApplyFlag.checked = true;
             }
         };
@@ -885,9 +928,9 @@ class App {
         const refreshGoalRegisterState = () => {
             if (!goalRegisterBtn) return;
             const category = goalCategorySelect ? goalCategorySelect.value : '';
-            const weekdayHours = goalWeekdayInput ? Number(goalWeekdayInput.value) : NaN;
-            const weekendHours = goalWeekendInput ? Number(goalWeekendInput.value) : NaN;
-            const isValid = Boolean(category) && Number.isFinite(weekdayHours) && Number.isFinite(weekendHours);
+            const weekdayMinutes = getGoalMinutesValue(goalWeekdayHours, goalWeekdayMinutes);
+            const weekendMinutes = getGoalMinutesValue(goalWeekendHours, goalWeekendMinutes);
+            const isValid = Boolean(category) && Number.isFinite(weekdayMinutes) && Number.isFinite(weekendMinutes);
             goalRegisterBtn.disabled = !isValid;
         };
 
@@ -897,11 +940,17 @@ class App {
                 refreshGoalRegisterState();
             });
         }
-        if (goalWeekdayInput) {
-            goalWeekdayInput.addEventListener('input', refreshGoalRegisterState);
+        if (goalWeekdayHours) {
+            goalWeekdayHours.addEventListener('change', refreshGoalRegisterState);
         }
-        if (goalWeekendInput) {
-            goalWeekendInput.addEventListener('input', refreshGoalRegisterState);
+        if (goalWeekdayMinutes) {
+            goalWeekdayMinutes.addEventListener('change', refreshGoalRegisterState);
+        }
+        if (goalWeekendHours) {
+            goalWeekendHours.addEventListener('change', refreshGoalRegisterState);
+        }
+        if (goalWeekendMinutes) {
+            goalWeekendMinutes.addEventListener('change', refreshGoalRegisterState);
         }
         if (goalApplyFlag) {
             goalApplyFlag.addEventListener('change', refreshGoalRegisterState);
@@ -909,18 +958,18 @@ class App {
         if (goalRegisterBtn) {
             goalRegisterBtn.addEventListener('click', async () => {
                 const category = goalCategorySelect ? goalCategorySelect.value : '';
-                const weekdayHours = goalWeekdayInput ? Number(goalWeekdayInput.value) || 0 : 0;
-                const weekendHours = goalWeekendInput ? Number(goalWeekendInput.value) || 0 : 0;
+                const weekdayMinutes = getGoalMinutesValue(goalWeekdayHours, goalWeekdayMinutes);
+                const weekendMinutes = getGoalMinutesValue(goalWeekendHours, goalWeekendMinutes);
                 const isActive = goalApplyFlag ? goalApplyFlag.checked : true;
                 if (!category) return;
                 if (this.dataManager.goals?.[category]) {
                     const ok = window.confirm('このカテゴリの目標は既に登録されています。上書きしますか？');
                     if (!ok) return;
                 }
-                await this.dataManager.setGoal(category, weekdayHours, weekendHours, isActive);
+                await this.dataManager.setGoal(category, weekdayMinutes, weekendMinutes, isActive);
                 await this.updateDashboard();
-                if (goalWeekdayInput) goalWeekdayInput.value = '0';
-                if (goalWeekendInput) goalWeekendInput.value = '0';
+                setGoalTimeValue(goalWeekdayHours, goalWeekdayMinutes, 0);
+                setGoalTimeValue(goalWeekendHours, goalWeekendMinutes, 0);
                 if (goalCategorySelect) goalCategorySelect.value = '';
                 if (goalApplyFlag) goalApplyFlag.checked = true;
                 refreshGoalRegisterState();
@@ -1432,10 +1481,9 @@ class App {
         modal.classList.add('hidden');
     }
 
-    formatGoalHours(value) {
-        const num = Number(value) || 0;
-        if (Number.isInteger(num)) return String(num);
-        return num.toFixed(1).replace(/\.0$/, '');
+    formatGoalMinutes(value) {
+        const minutes = Math.max(0, Math.round(Number(value) || 0));
+        return this.formatDuration(minutes);
     }
 
     updateGoalRegistrationUI() {
@@ -1467,16 +1515,16 @@ class App {
         entries.forEach(([category, goal]) => {
             const item = document.createElement('div');
             item.className = 'goal-list-item';
-            const weekday = this.formatGoalHours(goal.weekdayHours ?? 0);
-            const weekend = this.formatGoalHours(goal.weekendHours ?? 0);
-            const total = this.formatGoalHours(goal.totalHours ?? 0);
+            const weekday = this.formatGoalMinutes(goal.weekdayMinutes ?? 0);
+            const weekend = this.formatGoalMinutes(goal.weekendMinutes ?? 0);
+            const total = this.formatGoalMinutes(goal.totalMinutes ?? 0);
             const status = goal.isActive === false ? '非表示' : '反映中';
             item.innerHTML = `
                 <div class="goal-list-title">${this.escapeHtml(category)}</div>
                 <div class="goal-list-meta">
-                    <span>平日 ${weekday}時間/日</span>
-                    <span>土日 ${weekend}時間/日</span>
-                    <span>週合計 ${total}時間</span>
+                    <span>平日 ${weekday}/日</span>
+                    <span>土日 ${weekend}/日</span>
+                    <span>週合計 ${total}</span>
                     <span>マイページ ${status}</span>
                 </div>
             `;
@@ -1497,8 +1545,8 @@ class App {
             const hours = mins / 60;
             const goal = this.dataManager.goals[cat];
             if (goal && goal.isActive === false) return;
-            const goalHours = goal?.totalHours || 0;
-            const percentage = goalHours > 0 ? Math.min(Math.round((hours / goalHours) * 100), 100) : 0;
+            const goalMinutes = goal?.totalMinutes || 0;
+            const percentage = goalMinutes > 0 ? Math.min(Math.round((mins / goalMinutes) * 100), 100) : 0;
             
             let fillClass = 'low';
             if (percentage >= 100) fillClass = 'high';
@@ -1509,7 +1557,7 @@ class App {
             item.innerHTML = `
                 <div class="progress-header">
                     <span class="category-name">${cat}</span>
-                    <span class="progress-stats">${hours.toFixed(1)}時間/${goalHours}時間 ${percentage}%</span>
+                    <span class="progress-stats">${this.formatDuration(mins)}/${this.formatDuration(goalMinutes)} ${percentage}%</span>
                 </div>
                 <div class="progress-bar">
                     <div class="progress-fill ${fillClass}" style="width: ${percentage}%"></div>
@@ -1597,11 +1645,12 @@ class App {
         this.dataManager.categories.forEach(cat => {
             const item = document.createElement('div');
             item.className = 'goal-item';
-            const currentGoal = this.dataManager.goals[cat]?.totalHours || 0;
+            const currentGoalMinutes = this.dataManager.goals[cat]?.totalMinutes || 0;
+            const currentGoalHours = currentGoalMinutes / 60;
             item.innerHTML = `
                 <span>${cat}</span>
                 <div>
-                    <input type="number" min="0" max="168" value="${currentGoal}" data-category="${cat}">
+                    <input type="number" min="0" max="168" value="${currentGoalHours}" data-category="${cat}">
                     <span> 時間/週</span>
                 </div>
             `;
@@ -1620,8 +1669,10 @@ class App {
         const inputs = document.querySelectorAll('#goal-form input');
         for (const input of inputs) {
             const category = input.dataset.category;
-            const hours = parseInt(input.value) || 0;
-            await this.dataManager.setGoal(category, hours);
+            const hours = parseFloat(input.value) || 0;
+            const totalMinutes = Math.round(hours * 60);
+            const isActive = this.dataManager.goals?.[category]?.isActive ?? true;
+            await this.dataManager.setGoal(category, totalMinutes, null, isActive);
         }
         await this.updateDashboard();
     }
