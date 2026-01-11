@@ -625,6 +625,12 @@ body {
     border-bottom: none;
 }
 
+.goal-subsection h4 {
+    margin: 16px 0 8px;
+    font-size: 14px;
+    color: #666;
+}
+
 .goal-list-header {
     display: flex;
     justify-content: space-between;
@@ -657,6 +663,61 @@ body {
 
 .goal-edit-btn:hover {
     background: #e0e0e0;
+}
+
+.goal-menu {
+    position: relative;
+}
+
+.goal-menu-btn {
+    border: none;
+    background: #f0f0f0;
+    color: #333;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.goal-menu-btn:hover {
+    background: #e0e0e0;
+}
+
+.goal-menu-dropdown {
+    position: absolute;
+    right: 0;
+    top: 36px;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+    padding: 6px;
+    min-width: 120px;
+    z-index: 5;
+}
+
+.goal-menu-item {
+    width: 100%;
+    border: none;
+    background: transparent;
+    padding: 8px 10px;
+    text-align: left;
+    cursor: pointer;
+    font-size: 14px;
+    color: #333;
+    border-radius: 8px;
+}
+
+.goal-menu-item:hover {
+    background: #f2f2f2;
+}
+
+.goal-menu-item.danger {
+    color: #e74c3c;
 }
 
 .modal-content #goal-edit-category {

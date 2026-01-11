@@ -104,6 +104,18 @@ const SupabaseDB = {
     return data;
   },
 
+  async deleteCategory(name) {
+    const user = await SupabaseAuth.getCurrentUser();
+    const { error } = await supabaseClient
+      .from('categories')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('name', name);
+
+    if (error) throw error;
+    return true;
+  },
+
   // 記録追加
   async addRecord(category, minutes, text = '', isPublic = true, recordedAtIso = null) {
     const user = await SupabaseAuth.getCurrentUser();
@@ -271,6 +283,19 @@ const SupabaseDB = {
 
     if (error) throw error;
     return data;
+  },
+
+  async deleteGoal(category) {
+    const user = await SupabaseAuth.getCurrentUser();
+    const { data, error } = await supabaseClient
+      .from('goals')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('category', category)
+      .select('id');
+
+    if (error) throw error;
+    return true;
   },
 
   // 投稿一覧取得（タイムライン）

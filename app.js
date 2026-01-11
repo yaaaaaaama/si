@@ -82,6 +82,26 @@ class DataManager {
         }
     }
 
+    async deleteCategory(name) {
+        try {
+            await SupabaseDB.deleteCategory(name);
+            return true;
+        } catch (error) {
+            console.error('Delete category error:', error);
+            return false;
+        }
+    }
+
+    async deleteGoal(category) {
+        try {
+            await SupabaseDB.deleteGoal(category);
+            return true;
+        } catch (error) {
+            console.error('Delete goal error:', error);
+            return false;
+        }
+    }
+
     async getCategories() {
         try {
             const categories = await SupabaseDB.getCategories();
@@ -421,6 +441,8 @@ class App {
         this.pendingViewAfterNa = null;
         this.lastRecordCategory = null;
         this.currentGoalEditCategory = null;
+        this.goalMenuHandlerBound = false;
+        this.goalMenuBound = false;
         
          this.weekOffset = 0;
 
@@ -763,6 +785,19 @@ class App {
         }
         if (manualCategoryEl) {
             manualCategoryEl.addEventListener('change', refreshManualNaSaveEnabled);
+        }
+        if (manualCategoryEl) {
+            manualCategoryEl.addEventListener('change', async () => {
+                if (!manualPostTextEl) return;
+                if (manualPostTextEl.value.trim()) return;
+                const category = manualCategoryEl.value;
+                if (!category) return;
+                const na = await this.dataManager.getNextActionByCategory(category);
+                if (na?.title) {
+                    manualPostTextEl.value = String(na.title);
+                    refreshManualNaSaveEnabled();
+                }
+            });
         }
 
         const saveManualRecord = async () => {
@@ -1133,6 +1168,74 @@ class App {
         } finally {
             btn.disabled = false;
         }
+        });
+
+        if (!this.goalMenuHandlerBound) {
+            const handleGoalMenuClick = async (e) => {
+                const menuBtn = e.target.closest('.goal-menu-btn');
+                if (menuBtn) {
+                    e.stopPropagation();
+                    const menu = menuBtn.parentElement?.querySelector('.goal-menu-dropdown');
+                    if (menu) menu.classList.toggle('hidden');
+                    return;
+                }
+
+                const menuItem = e.target.closest('.goal-menu-item');
+                if (!menuItem) return;
+                e.stopPropagation();
+                const action = menuItem.dataset.action;
+                const item = menuItem.closest('.goal-list-item');
+                const category = item?.dataset.category;
+                if (!category) return;
+                const goal = this.dataManager.goals?.[category];
+                const menu = menuItem.closest('.goal-menu-dropdown');
+
+                if (action === 'edit') {
+                    if (!goal || !this.openGoalEditForm) return;
+                    this.openGoalEditForm({
+                        category,
+                        weekdayMinutes: goal.weekdayMinutes ?? 0,
+                        weekendMinutes: goal.weekendMinutes ?? 0,
+                        isActive: goal.isActive !== false,
+                        isNew: false
+                    });
+                    if (menu) menu.classList.add('hidden');
+                    return;
+                }
+
+                if (action === 'delete') {
+                    const ok = window.confirm('このカテゴリを削除します。記録や投稿は削除されません。よろしいですか？');
+                    if (!ok) return;
+                    const goalDeleted = await this.dataManager.deleteGoal(category);
+                    const categoryDeleted = await this.dataManager.deleteCategory(category);
+                    if (!goalDeleted) {
+                        alert('目標の削除に失敗しました。権限やRLSを確認してください。');
+                        return;
+                    }
+                    if (!categoryDeleted) {
+                        alert('カテゴリの削除に失敗しました。権限やRLSを確認してください。');
+                        return;
+                    }
+                    if (this.dataManager.goals?.[category]) {
+                        delete this.dataManager.goals[category];
+                    }
+                    if (Array.isArray(this.dataManager.categories)) {
+                        this.dataManager.categories = this.dataManager.categories.filter(c => c !== category);
+                    }
+                    await this.updateDashboard();
+                    if (menu) menu.classList.add('hidden');
+                }
+            };
+
+            document.addEventListener('click', handleGoalMenuClick, true);
+            this.goalMenuHandlerBound = true;
+        }
+
+        document.addEventListener('click', (e) => {
+            if (e.target.closest('.goal-menu')) return;
+            document.querySelectorAll('.goal-menu-dropdown').forEach(menu => {
+                menu.classList.add('hidden');
+            });
         });
     }
 
@@ -1623,53 +1726,61 @@ class App {
     }
 
     updateGoalRegistrationUI() {
-        const list = document.getElementById('goal-list');
-        if (!list) return;
-        const entries = Object.entries(this.dataManager.goals || {})
-            .filter(([, goal]) => goal?.isActive !== false);
-        list.innerHTML = '';
+        const listActive = document.getElementById('goal-list-active');
+        const listInactive = document.getElementById('goal-list-inactive');
+        const sectionActive = document.getElementById('goal-subsection-active');
+        const sectionInactive = document.getElementById('goal-subsection-inactive');
+        if (!listActive || !listInactive) return;
 
-        if (entries.length === 0) {
-            list.innerHTML = '<p style="color: #999; text-align: center;">表示する目標がありません</p>';
-            return;
-        }
+        const entries = Object.entries(this.dataManager.goals || {});
+        const activeEntries = entries.filter(([, goal]) => goal?.isActive !== false);
+        const inactiveEntries = entries.filter(([, goal]) => goal?.isActive === false);
 
-        entries.forEach(([category, goal]) => {
-            const item = document.createElement('div');
-            item.className = 'goal-list-item';
-            const weekday = this.formatGoalMinutes(goal.weekdayMinutes ?? 0);
-            const weekend = this.formatGoalMinutes(goal.weekendMinutes ?? 0);
-            const total = this.formatGoalMinutes(goal.totalMinutes ?? 0);
-            item.innerHTML = `
-                <div class="goal-list-header">
-                    <div class="goal-list-title">${this.escapeHtml(category)}</div>
-                    <button class="goal-edit-btn">編集</button>
-                </div>
-                <div class="goal-list-meta">
-                    <span>平日 ${weekday}/日</span>
-                    <span>土日 ${weekend}/日</span>
-                    <span>週合計 ${total}</span>
-                </div>
-            `;
-            const editBtn = item.querySelector('.goal-edit-btn');
-            if (editBtn) editBtn.dataset.category = category;
-            list.appendChild(item);
-        });
+        listActive.innerHTML = '';
+        listInactive.innerHTML = '';
 
-        list.querySelectorAll('.goal-edit-btn').forEach((btn) => {
-            btn.addEventListener('click', () => {
-                const category = btn.dataset.category;
-                const goal = this.dataManager.goals?.[category];
-                if (!goal || !this.openGoalEditForm) return;
-                this.openGoalEditForm({
-                    category,
-                    weekdayMinutes: goal.weekdayMinutes ?? 0,
-                    weekendMinutes: goal.weekendMinutes ?? 0,
-                    isActive: goal.isActive !== false,
-                    isNew: false
-                });
+        const renderList = (container, items, emptyText, section) => {
+            if (items.length === 0) {
+                container.innerHTML = `<p style="color: #999; text-align: center;">${emptyText}</p>`;
+                if (section) section.classList.add('hidden');
+                return;
+            }
+            if (section) section.classList.remove('hidden');
+
+            items.forEach(([category, goal]) => {
+                const item = document.createElement('div');
+                item.className = 'goal-list-item';
+                item.dataset.category = category;
+                const weekday = this.formatGoalMinutes(goal.weekdayMinutes ?? 0);
+                const weekend = this.formatGoalMinutes(goal.weekendMinutes ?? 0);
+                const total = this.formatGoalMinutes(goal.totalMinutes ?? 0);
+                item.innerHTML = `
+                    <div class="goal-list-header">
+                        <div class="goal-list-title">${this.escapeHtml(category)}</div>
+                        <div class="goal-menu">
+                            <button class="goal-menu-btn" aria-label="目標メニュー">⋯</button>
+                            <div class="goal-menu-dropdown hidden">
+                                <button class="goal-menu-item" data-action="edit">編集</button>
+                                <button class="goal-menu-item danger" data-action="delete">削除</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="goal-list-meta">
+                        <span>平日 ${weekday}/日</span>
+                        <span>土日 ${weekend}/日</span>
+                        <span>週合計 ${total}</span>
+                    </div>
+                `;
+
+                container.appendChild(item);
             });
-        });
+        };
+
+        renderList(listActive, activeEntries, '目標がありません', sectionActive);
+        renderList(listInactive, inactiveEntries, '目標がありません', sectionInactive);
+
+        listActive.onclick = null;
+        listInactive.onclick = null;
     }
 
     updateProgressBars(weekRecords) {
