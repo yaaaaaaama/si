@@ -146,7 +146,7 @@
                 </div>
 
                 <div class="chart-section">
-                    <h3>週間推移グラフ</h3>
+                    <h3>日次達成状況</h3>
                     <canvas id="week-chart"></canvas>
                     
                     <div class="week-nav">
@@ -157,7 +157,7 @@
 
                 <div class="goal-section">
                     <div class="section-header">
-                        <h3>週間目標</h3>
+                        <h3>週次達成状況</h3>
                     </div>
                     <div id="progress-list"></div>
                 </div>
@@ -404,7 +404,6 @@
             <h4>コメント</h4>
             <textarea id="edit-post-text" placeholder="今日の感想を書く..." maxlength="100"></textarea>
             <div class="modal-actions">
-                <button id="edit-delete-btn" class="danger-btn">削除</button>
                 <button id="edit-cancel-btn" class="secondary-btn">キャンセル</button>
                 <button id="edit-save-btn" class="primary-btn">保存</button>
             </div>
@@ -422,20 +421,6 @@
         </div>
     </div>
 
-    <!-- コメントモーダル -->
-    <div id="comment-modal" class="modal hidden">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>コメント</h3>
-                <button class="close-btn" id="close-comment-modal">✕</button>
-            </div>
-            <div id="comment-list"></div>
-            <div class="comment-input">
-                <input type="text" id="comment-text" placeholder="コメントを入力..." maxlength="100">
-                <button id="post-comment-btn" class="secondary-btn">送信</button>
-            </div>
-        </div>
-    </div>
 
     <!-- Supabase JavaScript SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

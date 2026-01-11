@@ -441,8 +441,10 @@ class App {
         this.pendingViewAfterNa = null;
         this.lastRecordCategory = null;
         this.currentGoalEditCategory = null;
+        this.currentNaCategory = null;
         this.goalMenuHandlerBound = false;
         this.goalMenuBound = false;
+        this.naMenuHandlerBound = false;
         
          this.weekOffset = 0;
 
@@ -494,6 +496,13 @@ class App {
     const hh = String(d.getHours()).padStart(2, '0');
     const mi = String(d.getMinutes()).padStart(2, '0');
     return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
+    }
+
+    toDateInputValue(d) {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
     }
 
 
@@ -711,11 +720,7 @@ class App {
 
         document.getElementById('na-skip-btn').addEventListener('click', async () => {
             this.hideNextActionModal();
-            if (this.pendingViewAfterNa) {
-                this.switchView(this.pendingViewAfterNa);
-                this.pendingViewAfterNa = null;
-            }
-            await this.updateUI();
+            this.pendingViewAfterNa = null;
         });
 
         document.getElementById('na-save-btn').addEventListener('click', async () => {
@@ -723,7 +728,7 @@ class App {
             const dtValue = document.getElementById('na-datetime').value;
 
             if (!title) return;
-            const category = this.lastRecordCategory;
+            const category = this.currentNaCategory || this.lastRecordCategory;
             if (!category) {
                 alert('カテゴリを選択してから保存してください。');
                 return;
@@ -744,8 +749,26 @@ class App {
                 this.switchView(this.pendingViewAfterNa);
                 this.pendingViewAfterNa = null;
             }
-            await this.updateUI();
+            await this.updateNextActions();
         });
+
+        if (!this.naMenuHandlerBound) {
+            const naList = document.getElementById('na-list');
+            if (naList) {
+                this.naMenuHandlerBound = true;
+                naList.addEventListener('click', async (e) => {
+                    const menuBtn = e.target.closest('.na-menu-btn');
+
+                    if (menuBtn) {
+                        const item = menuBtn.closest('.na-item');
+                        const category = item?.dataset?.category;
+                        if (!category) return;
+                        const na = await this.dataManager.getNextActionByCategory(category);
+                        this.showNextActionModalForCategory(category, na);
+                    }
+                });
+            }
+        }
 
         // 手動追加モーダル
         const manualPostTextEl = document.getElementById('manual-post-text');
@@ -874,28 +897,6 @@ class App {
         // 編集モーダル
         document.getElementById('edit-cancel-btn').addEventListener('click', () => {
             this.hideEditModal();
-        });
-
-        document.getElementById('edit-delete-btn').addEventListener('click', async () => {
-        if (!this.currentEditRecordId) return;
-        const ok = window.confirm('この記録を削除します。よろしいですか？');
-        if (!ok) return;
-
-        try {
-            await this.dataManager.deleteRecord(this.currentEditRecordId);
-            this.hideEditModal();
-
-            // 現在のビューを再読み込み
-            if (this.currentViewUserId) {
-            await this.showUserPage(this.currentViewUserId);
-            } else {
-            await this.updateUI();
-            await this.refreshCommunityIfActive();
-            }
-        } catch (e) {
-            console.error('Delete record error:', e);
-            alert('削除に失敗しました。コンソールを確認してください。');
-        }
         });
 
         document.getElementById('edit-save-btn').addEventListener('click', async () => {
@@ -1116,14 +1117,6 @@ class App {
             this.hideFollowingModal();
         });
 
-        // コメントモーダル
-        document.getElementById('close-comment-modal').addEventListener('click', () => {
-            this.hideCommentModal();
-        });
-
-        document.getElementById('post-comment-btn').addEventListener('click', () => {
-            this.postComment();
-        });
 
         // フォローボタン
         document.getElementById('follow-btn').addEventListener('click', async () => {
@@ -1604,12 +1597,11 @@ class App {
     }
 
     async updateDashboard() {
-        await this.updateNextActions();
-
         this.dataManager.categories = await this.dataManager.getCategories();
         // goals をロードして保持
         this.dataManager.goals = await this.dataManager.getGoals();
         this.updateGoalRegistrationUI();
+        await this.updateNextActions();
 
         const weekRecords = await this.dataManager.getWeekRecords(this.weekOffset);
         const { start } = this.dataManager.getWeekRange(this.weekOffset);
@@ -1643,29 +1635,42 @@ class App {
         const list = document.getElementById('na-list');
         if (!list) return;
 
-        const actions = await this.dataManager.getNextActions(3);
         list.innerHTML = '';
 
-        if (!actions || actions.length === 0) {
+        const categories = Object.entries(this.dataManager.goals || {})
+            .filter(([, goal]) => goal?.isActive !== false)
+            .map(([cat]) => cat);
+
+        if (categories.length === 0) {
             const p = document.createElement('p');
             p.className = 'na-empty';
-            p.textContent = 'なし';
+            p.textContent = 'カテゴリがありません';
             list.appendChild(p);
             return;
         }
 
-        actions.forEach(a => {
+        const actions = await Promise.all(
+            categories.map(async (category) => {
+                const na = await this.dataManager.getNextActionByCategory(category);
+                return { category, na };
+            })
+        );
+
+        actions.forEach(({ category, na }) => {
             const item = document.createElement('div');
             item.className = 'na-item';
-
-            const dt = a.scheduled_at ? this.formatNaDateTime(a.scheduled_at) : '日時未定';
-
+            item.dataset.category = category;
+            const title = na?.title ? this.escapeHtml(na.title) : '未設定';
+            const dateText = na?.scheduled_at ? this.formatNaDateTime(na.scheduled_at) : '';
             item.innerHTML = `
                 <div class="na-meta">
-                    <span class="na-category">${this.escapeHtml(a.category)}</span>
-                    <span class="na-time">${this.escapeHtml(dt)}</span>
+                    <span class="na-category">${this.escapeHtml(category)}</span>
+                    <button class="na-menu-btn" type="button" aria-label="NAメニュー">⋯</button>
                 </div>
-                <div class="na-title">${this.escapeHtml(a.title)}</div>
+                <div class="na-title-row">
+                    ${dateText ? `<span class="na-date">${this.escapeHtml(dateText)}</span>` : ''}
+                    <span class="na-title-text">${title}</span>
+                </div>
             `;
             list.appendChild(item);
         });
@@ -1692,6 +1697,7 @@ class App {
         const modal = document.getElementById('na-modal');
         if (!modal) return;
         modal.classList.remove('hidden');
+        this.currentNaCategory = null;
         const titleEl = document.getElementById('na-title');
         const dtEl = document.getElementById('na-datetime');
         const saveBtn = document.getElementById('na-save-btn');
@@ -1700,10 +1706,31 @@ class App {
         if (saveBtn) saveBtn.disabled = true;
     }
 
+    showNextActionModalForCategory(category, na) {
+        const modal = document.getElementById('na-modal');
+        if (!modal) return;
+        modal.classList.remove('hidden');
+        this.currentNaCategory = category;
+        const titleEl = document.getElementById('na-title');
+        const dtEl = document.getElementById('na-datetime');
+        const saveBtn = document.getElementById('na-save-btn');
+        if (titleEl) titleEl.value = na?.title ? String(na.title) : '';
+        if (dtEl) {
+            if (na?.scheduled_at) {
+                const d = new Date(na.scheduled_at);
+                dtEl.value = isNaN(d.getTime()) ? '' : this.toDateInputValue(d);
+            } else {
+                dtEl.value = '';
+            }
+        }
+        if (saveBtn) saveBtn.disabled = !(titleEl?.value || '').trim();
+    }
+
     hideNextActionModal() {
         const modal = document.getElementById('na-modal');
         if (!modal) return;
         modal.classList.add('hidden');
+        this.currentNaCategory = null;
     }
 
     sortCategoriesByGoalFlag(categories = []) {
@@ -2057,18 +2084,16 @@ class App {
                 ` : ''}
             </div>
             <div class="post-content">
-                <div class="post-category">${post.category}</div>
-                <div class="post-duration">${this.formatDuration(post.minutes)}</div>
+                <div class="post-meta-line">
+                    <div class="post-category">${post.category}</div>
+                    <div class="post-duration">${this.formatDuration(post.minutes)}</div>
+                </div>
                 <div class="post-text">${post.text}</div>
             </div>
             <div class="post-actions">
                 <button class="action-btn like-btn ${post.isLiked ? 'liked' : ''}" data-post-id="${post.id}">
                     <span class="action-icon">${post.isLiked ? '♥' : '♡'}</span>
                     <span>${post.likes}</span>
-                </button>
-                <button class="action-btn comment-btn" data-post-id="${post.id}">
-                    <span class="action-text">コメント</span>
-                    <span>${post.commentsCount}</span>
                 </button>
             </div>
         `;
@@ -2085,12 +2110,6 @@ class App {
         likeBtn.addEventListener('click', async () => {
             await this.dataManager.toggleLike(post.id);
             await this.updateCommunity(document.querySelector('.tab-btn.active').dataset.tab);
-        });
-
-        // コメントボタン
-        const commentBtn = card.querySelector('.comment-btn');
-        commentBtn.addEventListener('click', () => {
-            this.showCommentModal(post.id);
         });
 
         if (post.isMyPost) {
@@ -2177,44 +2196,7 @@ class App {
         return `${yyyy}/${mm}/${dd}`;
     }   
 
-    async showCommentModal(postId) {
-        this.currentPostId = postId;
-        const comments = await this.dataManager.getComments(postId);
-        
-        const list = document.getElementById('comment-list');
-        list.innerHTML = '';
-
-        comments.forEach(comment => {
-            const item = document.createElement('div');
-            item.className = 'comment-item';
-            item.innerHTML = `
-                <div class="comment-user">${comment.userName}</div>
-                <div class="comment-text">${comment.text}</div>
-            `;
-            list.appendChild(item);
-        });
-
-        if (comments.length === 0) {
-            list.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">コメントがありません</p>';
-        }
-
-        document.getElementById('comment-text').value = '';
-        document.getElementById('comment-modal').classList.remove('hidden');
-    }
-
-    hideCommentModal() {
-        document.getElementById('comment-modal').classList.add('hidden');
-        this.currentPostId = null;
-    }
-
-    async postComment() {
-        const text = document.getElementById('comment-text').value.trim();
-        if (text && this.currentPostId) {
-            await this.dataManager.addComment(this.currentPostId, text);
-            await this.showCommentModal(this.currentPostId);
-            await this.updateCommunity(document.querySelector('.tab-btn.active').dataset.tab);
-        }
-    }
+    // コメント機能は無効化
 }
 
 // app.js 起動時
