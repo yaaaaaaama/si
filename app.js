@@ -419,6 +419,7 @@ class App {
         this.currentViewUserId = null;
         this.pendingViewAfterNa = null;
         this.pendingViewAfterNa = null;
+        this.lastRecordCategory = null;
         
          this.weekOffset = 0;
 
@@ -641,6 +642,8 @@ class App {
             const category = document.getElementById('category-select').value;
             const minutes = parseInt(document.getElementById('recorded-time').textContent);
             const text = document.getElementById('post-text').value.trim();
+            const naTitle = document.getElementById('stop-na-title').value.trim();
+            const naDateValue = document.getElementById('stop-na-datetime').value;
             const isPublic = document.getElementById('post-public').checked;
 
             if (category && minutes > 0) {
@@ -654,6 +657,21 @@ class App {
 
                 if (!ok) return;
 
+                if (naTitle) {
+                    let scheduledAtIso = null;
+                    if (naDateValue) {
+                        const [y, m, d] = naDateValue.split('-').map(Number);
+                        const localDate = new Date(y, m - 1, d, 0, 0, 0);
+                        if (!isNaN(localDate.getTime())) scheduledAtIso = localDate.toISOString();
+                    }
+                    const naOk = await this.dataManager.addNextAction(category, naTitle, scheduledAtIso);
+                    if (!naOk) {
+                        alert('次のやることの保存に失敗しました。');
+                    }
+                }
+
+                this.lastRecordCategory = category;
+
                 this.hideCategoryModal();
                 await this.updateUI();
 
@@ -664,39 +682,23 @@ class App {
                 // 保存後に「次のやること」モーダルを開く
                 // コミュニティへの遷移は NA 入力後（またはスキップ後）に行う
                 this.pendingViewAfterNa = (isPublic && text) ? 'community' : null;
-                await this.updateNaCategorySelect();
-                this.showNextActionModal();
+                if (this.pendingViewAfterNa) {
+                    this.switchView(this.pendingViewAfterNa);
+                    this.pendingViewAfterNa = null;
+                }
             }
         });
 
         // NAモーダル
-        const naCategoryEl = document.getElementById('na-category-select');
         const naTitleEl = document.getElementById('na-title');
         const naSaveBtn = document.getElementById('na-save-btn');
 
         const refreshNaSaveEnabled = () => {
-            const cat = naCategoryEl.value;
             const title = naTitleEl.value.trim();
-            naSaveBtn.disabled = !(cat && title);
+            naSaveBtn.disabled = !title;
         };
 
-        naCategoryEl.addEventListener('change', refreshNaSaveEnabled);
         naTitleEl.addEventListener('input', refreshNaSaveEnabled);
-
-        document.getElementById('na-add-category-btn').addEventListener('click', async () => {
-            const name = document.getElementById('na-new-category-input').value.trim();
-            if (!name) return;
-            const ok = await this.dataManager.addCategory(name);
-            if (!ok) return;
-            await this.updateCategorySelect();
-            await this.updateHomeCategorySelect();
-            await this.updateManualCategorySelect();
-            await this.updateEditCategorySelect();
-            await this.updateNaCategorySelect();
-            document.getElementById('na-new-category-input').value = '';
-            document.getElementById('na-category-select').value = name;
-            refreshNaSaveEnabled();
-        });
 
         document.getElementById('na-skip-btn').addEventListener('click', async () => {
             this.hideNextActionModal();
@@ -708,11 +710,15 @@ class App {
         });
 
         document.getElementById('na-save-btn').addEventListener('click', async () => {
-            const category = document.getElementById('na-category-select').value;
             const title = document.getElementById('na-title').value.trim();
             const dtValue = document.getElementById('na-datetime').value;
 
-            if (!category || !title) return;
+            if (!title) return;
+            const category = this.lastRecordCategory;
+            if (!category) {
+                alert('カテゴリを選択してから保存してください。');
+                return;
+            }
 
             let scheduledAtIso = null;
             if (dtValue) {
@@ -733,6 +739,45 @@ class App {
         });
 
         // 手動追加モーダル
+        const manualPostTextEl = document.getElementById('manual-post-text');
+        const manualNaTitleEl = document.getElementById('manual-na-title');
+        const manualNaDateEl = document.getElementById('manual-na-datetime');
+        const manualNaSaveBtn = document.getElementById('manual-na-save-btn');
+        const manualNaSkipBtn = document.getElementById('manual-na-skip-btn');
+        const manualHoursEl = document.getElementById('manual-hours');
+        const manualMinutesEl = document.getElementById('manual-minutes');
+        const manualCategoryEl = document.getElementById('manual-category-select');
+
+        const getManualTotalMinutes = () => {
+            const hours = parseInt(manualHoursEl?.value, 10) || 0;
+            const minutes = parseInt(manualMinutesEl?.value, 10) || 0;
+            return hours * 60 + minutes;
+        };
+
+        const isManualRecordValid = () => {
+            const category = manualCategoryEl ? manualCategoryEl.value : '';
+            const totalMinutes = getManualTotalMinutes();
+            return Boolean(category) && totalMinutes > 0;
+        };
+
+        const refreshManualNaSaveEnabled = () => {
+            const validRecord = isManualRecordValid();
+            if (manualNaSaveBtn) manualNaSaveBtn.disabled = !validRecord;
+        };
+
+        if (manualNaTitleEl) {
+            manualNaTitleEl.addEventListener('input', refreshManualNaSaveEnabled);
+        }
+        if (manualHoursEl) {
+            manualHoursEl.addEventListener('change', refreshManualNaSaveEnabled);
+        }
+        if (manualMinutesEl) {
+            manualMinutesEl.addEventListener('change', refreshManualNaSaveEnabled);
+        }
+        if (manualCategoryEl) {
+            manualCategoryEl.addEventListener('change', refreshManualNaSaveEnabled);
+        }
+
         document.getElementById('manual-add-category-btn').addEventListener('click', async () => {
             const name = document.getElementById('manual-new-category-input').value.trim();
             if (name) {
@@ -741,54 +786,81 @@ class App {
                 await this.updateHomeCategorySelect();
                 document.getElementById('manual-new-category-input').value = '';
                 document.getElementById('manual-category-select').value = name;
-                document.getElementById('manual-save-btn').disabled = false;
                 document.getElementById('manual-date').value = this.toDateValue(new Date());
+                refreshManualNaSaveEnabled();
             }
         });
 
-        document.getElementById('manual-category-select').addEventListener('change', (e) => {
-            document.getElementById('manual-save-btn').disabled = !e.target.value;
-        });
-
-        document.getElementById('manual-cancel-btn').addEventListener('click', () => {
-            this.hideManualAddModal();
-        });
-
-        document.getElementById('manual-save-btn').addEventListener('click', async () => {
-            const hours = parseInt(document.getElementById('manual-hours').value) || 0;
-            const minutes = parseInt(document.getElementById('manual-minutes').value) || 0;
-            const totalMinutes = hours * 60 + minutes;
-            const category = document.getElementById('manual-category-select').value;
-            const text = document.getElementById('manual-post-text').value.trim();
+        const saveManualRecord = async () => {
+            if (!isManualRecordValid()) {
+                alert('カテゴリと時間を設定してください。');
+                return null;
+            }
+            const totalMinutes = getManualTotalMinutes();
+            const category = manualCategoryEl ? manualCategoryEl.value : '';
+            const text = manualPostTextEl ? manualPostTextEl.value.trim() : '';
             const isPublic = document.getElementById('manual-post-public').checked;
 
-            const dt = document.getElementById('manual-date').value; 
+            const dt = document.getElementById('manual-date').value;
             let createdAtIso = null;
             if (dt) {
                 const [y, m, d] = dt.split('-').map(Number);
                 const localMidnight = new Date(y, m - 1, d, 0, 0, 0);
                 createdAtIso = localMidnight.toISOString();
             }
-            if (category && totalMinutes > 0) {
-                const ok = await this.dataManager.addRecord(category, totalMinutes, text, isPublic, createdAtIso);
-                if (!ok) return;
+
+            const ok = await this.dataManager.addRecord(category, totalMinutes, text, isPublic, createdAtIso);
+            if (!ok) return null;
+
+            this.lastRecordCategory = category;
+            this.pendingViewAfterNa = (isPublic && text) ? 'community' : null;
+            await this.updateUI();
+            return { category };
+        };
+
+        if (manualNaSkipBtn) {
+            manualNaSkipBtn.addEventListener('click', async () => {
+                if (manualNaTitleEl) manualNaTitleEl.value = '';
+                if (manualNaDateEl) manualNaDateEl.value = '';
+                refreshManualNaSaveEnabled();
 
                 this.hideManualAddModal();
-                await this.updateUI();
+                if (this.pendingViewAfterNa) {
+                    this.switchView(this.pendingViewAfterNa);
+                    this.pendingViewAfterNa = null;
+                }
+                this.pendingViewAfterNa = null;
+            });
+        }
 
-                // 保存後に「次のやること」モーダルを開く（手動追加でも同様）
-                // コミュニティへの遷移は NA 入力後（またはスキップ後）に行う
-                this.pendingViewAfterNa = (isPublic && text) ? 'community' : null;
+        if (manualNaSaveBtn) {
+            manualNaSaveBtn.addEventListener('click', async () => {
+                const saved = await saveManualRecord();
+                if (!saved) return;
+                const title = manualNaTitleEl ? manualNaTitleEl.value.trim() : '';
+                let scheduledAtIso = null;
+                const dtValue = manualNaDateEl ? manualNaDateEl.value : '';
+                if (dtValue) {
+                    const [y, m, d] = dtValue.split('-').map(Number);
+                    const localDate = new Date(y, m - 1, d, 0, 0, 0);
+                    if (!isNaN(localDate.getTime())) scheduledAtIso = localDate.toISOString();
+                }
+                if (title) {
+                    const ok = await this.dataManager.addNextAction(saved.category, title, scheduledAtIso);
+                    if (!ok) return;
+                }
 
-                await this.updateNaCategorySelect();
+                if (manualNaTitleEl) manualNaTitleEl.value = '';
+                if (manualNaDateEl) manualNaDateEl.value = '';
+                refreshManualNaSaveEnabled();
 
-                // 直前に記録したカテゴリを初期選択
-                const naCat = document.getElementById('na-category-select');
-                if (naCat) naCat.value = category;
-
-                this.showNextActionModal();
-            }
-        });
+                this.hideManualAddModal();
+                if (this.pendingViewAfterNa) {
+                    this.switchView(this.pendingViewAfterNa);
+                    this.pendingViewAfterNa = null;
+                }
+            });
+        }
 
         // 編集モーダル
         document.getElementById('edit-cancel-btn').addEventListener('click', () => {
@@ -1144,13 +1216,22 @@ class App {
         return card;
     }
 
-        showCategoryModal(minutes, memoText = '') {
+    async showCategoryModal(minutes, memoText = '') {
         document.getElementById('recorded-time').textContent = `${minutes}分`;
-        this.updateCategorySelect();
-        document.getElementById('category-select').value = '';
+        await this.updateCategorySelect();
+        const categorySelect = document.getElementById('category-select');
+        const homeCategorySelect = document.getElementById('home-category-select');
+        const preferredCategory = homeCategorySelect ? homeCategorySelect.value : '';
+        if (categorySelect && preferredCategory && [...categorySelect.options].some(o => o.value === preferredCategory)) {
+            categorySelect.value = preferredCategory;
+        } else if (categorySelect) {
+            categorySelect.value = '';
+        }
         document.getElementById('post-text').value = memoText || '';
+        document.getElementById('stop-na-title').value = '';
+        document.getElementById('stop-na-datetime').value = '';
         document.getElementById('post-public').checked = true;
-        document.getElementById('save-record-btn').disabled = true;
+        document.getElementById('save-record-btn').disabled = !categorySelect?.value;
         document.getElementById('category-modal').classList.remove('hidden');
         }
 
@@ -1171,10 +1252,25 @@ class App {
 
         document.getElementById('manual-date').value = this.toDateValue(new Date());
         await this.updateManualCategorySelect();
-        document.getElementById('manual-category-select').value = '';
-        document.getElementById('manual-post-text').value = '';
+        const manualCategorySelect = document.getElementById('manual-category-select');
+        const homeCategorySelect = document.getElementById('home-category-select');
+        const preferredCategory = homeCategorySelect ? homeCategorySelect.value : '';
+        if (manualCategorySelect && preferredCategory && [...manualCategorySelect.options].some(o => o.value === preferredCategory)) {
+            manualCategorySelect.value = preferredCategory;
+        } else {
+            manualCategorySelect.value = '';
+        }
         document.getElementById('manual-post-public').checked = true;
-        document.getElementById('manual-save-btn').disabled = true;
+        const manualNaDateEl = document.getElementById('manual-na-datetime');
+        const manualNaSaveBtn = document.getElementById('manual-na-save-btn');
+        const manualNaSkipBtn = document.getElementById('manual-na-skip-btn');
+        const manualPostTextEl = document.getElementById('manual-post-text');
+        const manualNaTitleEl = document.getElementById('manual-na-title');
+        if (manualPostTextEl) manualPostTextEl.value = '';
+        if (manualNaTitleEl) manualNaTitleEl.value = '';
+        if (manualNaDateEl) manualNaDateEl.value = '';
+        if (manualNaSaveBtn) manualNaSaveBtn.disabled = true;
+        if (manualNaSkipBtn) manualNaSkipBtn.disabled = false;
         document.getElementById('manual-add-modal').classList.remove('hidden');
     }
 
@@ -1262,7 +1358,7 @@ class App {
         const select = document.getElementById('category-select');
         select.innerHTML = '<option value="">選択してください</option>';
         const categories = await this.dataManager.getCategories();
-        categories.forEach(cat => {
+        this.sortCategoriesByGoalFlag(categories).forEach(cat => {
             const option = document.createElement('option');
             option.value = cat;
             option.textContent = cat;
@@ -1278,7 +1374,7 @@ class App {
       select.innerHTML = '<option value="">カテゴリを選択</option>';
 
       const categories = await this.dataManager.getCategories();
-      categories.forEach(cat => {
+      this.sortCategoriesByGoalFlag(categories).forEach(cat => {
         const option = document.createElement('option');
         option.value = cat;
         option.textContent = cat;
@@ -1346,7 +1442,7 @@ class App {
         if (!select) return;
         select.innerHTML = '<option value="">選択してください</option>';
         const categories = await this.dataManager.getCategories();
-        categories.forEach(cat => {
+        this.sortCategoriesByGoalFlag(categories).forEach(cat => {
             const option = document.createElement('option');
             option.value = cat;
             option.textContent = cat;
@@ -1358,7 +1454,7 @@ class App {
         const select = document.getElementById('manual-category-select');
         select.innerHTML = '<option value="">選択してください</option>';
         const categories = await this.dataManager.getCategories();
-        categories.forEach(cat => {
+        this.sortCategoriesByGoalFlag(categories).forEach(cat => {
             const option = document.createElement('option');
             option.value = cat;
             option.textContent = cat;
@@ -1370,7 +1466,7 @@ class App {
         const select = document.getElementById('edit-category-select');
         select.innerHTML = '<option value="">選択してください</option>';
         const categories = await this.dataManager.getCategories();
-        categories.forEach(cat => {
+        this.sortCategoriesByGoalFlag(categories).forEach(cat => {
             const option = document.createElement('option');
             option.value = cat;
             option.textContent = cat;
@@ -1467,11 +1563,9 @@ class App {
         modal.classList.remove('hidden');
         const titleEl = document.getElementById('na-title');
         const dtEl = document.getElementById('na-datetime');
-        const catEl = document.getElementById('na-category-select');
         const saveBtn = document.getElementById('na-save-btn');
         if (titleEl) titleEl.value = '';
         if (dtEl) dtEl.value = '';
-        if (catEl) catEl.value = '';
         if (saveBtn) saveBtn.disabled = true;
     }
 
@@ -1479,6 +1573,20 @@ class App {
         const modal = document.getElementById('na-modal');
         if (!modal) return;
         modal.classList.add('hidden');
+    }
+
+    sortCategoriesByGoalFlag(categories = []) {
+        const goals = this.dataManager.goals || {};
+        return categories
+            .map((cat, index) => {
+                const isInactive = goals[cat]?.isActive === false;
+                return { cat, index, isInactive };
+            })
+            .sort((a, b) => {
+                if (a.isInactive === b.isInactive) return a.index - b.index;
+                return a.isInactive ? 1 : -1;
+            })
+            .map(item => item.cat);
     }
 
     formatGoalMinutes(value) {
@@ -1491,7 +1599,7 @@ class App {
         if (select) {
             const current = select.value;
             select.innerHTML = '<option value="">カテゴリを選択</option>';
-            (this.dataManager.categories || []).forEach(cat => {
+            this.sortCategoriesByGoalFlag(this.dataManager.categories || []).forEach(cat => {
                 const option = document.createElement('option');
                 option.value = cat;
                 option.textContent = cat;
@@ -1504,11 +1612,12 @@ class App {
 
         const list = document.getElementById('goal-list');
         if (!list) return;
-        const entries = Object.entries(this.dataManager.goals || {});
+        const entries = Object.entries(this.dataManager.goals || {})
+            .filter(([, goal]) => goal?.isActive !== false);
         list.innerHTML = '';
 
         if (entries.length === 0) {
-            list.innerHTML = '<p style="color: #999; text-align: center;">目標は未登録です</p>';
+            list.innerHTML = '<p style="color: #999; text-align: center;">表示する目標がありません</p>';
             return;
         }
 

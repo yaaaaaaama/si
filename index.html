@@ -243,6 +243,10 @@
             </div>
             <h4>一言（任意）</h4>
             <textarea id="post-text" placeholder="今日の感想を書く..." maxlength="100"></textarea>
+            <h4>次のやること（任意）</h4>
+            <textarea id="stop-na-title" placeholder="例：英語の発音練習" maxlength="100"></textarea>
+            <h4>日付（任意）</h4>
+            <input type="date" id="stop-na-datetime">
             <div class="post-options">
                 <label>
                     <input type="checkbox" id="post-public" checked>
@@ -257,15 +261,6 @@
     <div id="na-modal" class="modal hidden">
         <div class="modal-content">
             <h3>次のやること</h3>
-            <h4>カテゴリ（必須）</h4>
-            <select id="na-category-select">
-                <option value="">選択してください</option>
-            </select>
-            <div class="new-category">
-                <input type="text" id="na-new-category-input" placeholder="新しいカテゴリ名" maxlength="20">
-                <button id="na-add-category-btn" class="secondary-btn">+ 追加</button>
-            </div>
-
             <h4>やること（必須）</h4>
             <input type="text" id="na-title" placeholder="例：英語の発音練習" maxlength="50">
 
@@ -283,12 +278,13 @@
     <div id="manual-add-modal" class="modal hidden">
         <div class="modal-content">
             <h3>記録を手動で追加</h3>
-            <h4>日付</h4>
-            <input type="date" id="manual-date">
-            <h4>時間を設定（5分単位）</h4>
-            <div class="time-selector">
-                <label>
-                    <span>時間</span>
+            <div class="manual-date-time">
+                <div class="manual-date-block">
+                    <span class="manual-field-label">日付</span>
+                    <input type="date" id="manual-date">
+                </div>
+                <div class="manual-time-block">
+                    <span class="manual-field-label">時間</span>
                     <select id="manual-hours">
                         <option value="0">0</option>
                         <option value="1">1</option>
@@ -315,9 +311,9 @@
                         <option value="22">22</option>
                         <option value="23">23</option>
                     </select>
-                </label>
-                <label>
-                    <span>分</span>
+                </div>
+                <div class="manual-time-block">
+                    <span class="manual-field-label">分</span>
                     <select id="manual-minutes">
                         <option value="0">00</option>
                         <option value="5">05</option>
@@ -332,7 +328,7 @@
                         <option value="50">50</option>
                         <option value="55">55</option>
                     </select>
-                </label>
+                </div>
             </div>
             <h4>カテゴリを選択</h4>
             <select id="manual-category-select">
@@ -344,15 +340,24 @@
             </div>
             <h4>一言（任意）</h4>
             <textarea id="manual-post-text" placeholder="今日の感想を書く..." maxlength="100"></textarea>
-            <div class="post-options">
-                <label>
-                    <input type="checkbox" id="manual-post-public" checked>
-                    <span>コミュニティに投稿する</span>
-                </label>
-            </div>
-            <div class="modal-actions">
-                <button id="manual-cancel-btn" class="secondary-btn">キャンセル</button>
-                <button id="manual-save-btn" class="primary-btn" disabled>保存</button>
+            <div id="manual-na-section" class="manual-na-section">
+                <h3>次のやること</h3>
+                <h4>やること（任意）</h4>
+                <textarea id="manual-na-title" placeholder="例：英語の発音練習" maxlength="100"></textarea>
+
+                <h4>日付（任意）</h4>
+                <input type="date" id="manual-na-datetime">
+
+                <div class="post-options">
+                    <label>
+                        <input type="checkbox" id="manual-post-public" checked>
+                        <span>コミュニティに投稿する</span>
+                    </label>
+                </div>
+                <div class="modal-actions">
+                    <button id="manual-na-skip-btn" class="secondary-btn">今回はなし</button>
+                    <button id="manual-na-save-btn" class="primary-btn" disabled>保存</button>
+                </div>
             </div>
         </div>
     </div>

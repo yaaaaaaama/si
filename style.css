@@ -955,6 +955,36 @@ body {
     margin-bottom: 20px;
 }
 
+.manual-date-time {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.manual-field-label {
+    font-size: 14px;
+    color: #666;
+}
+
+.manual-date-block,
+.manual-time-block {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.manual-date-block input,
+.manual-time-block select {
+    width: 100%;
+}
+
+.manual-na-section {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid #f0f0f0;
+}
+
 .time-selector label {
     flex: 1;
     display: flex;
@@ -1064,6 +1094,10 @@ body {
     }
 
     .goal-register-hours {
+        grid-template-columns: 1fr;
+    }
+
+    .manual-date-time {
         grid-template-columns: 1fr;
     }
 }
@@ -1269,6 +1303,8 @@ body {
 /* 投稿テキストエリア */
 #post-text,
 #manual-post-text,
+#manual-na-title,
+#stop-na-title,
 #edit-post-text {
     width: 100%;
     padding: 12px;
@@ -1283,6 +1319,8 @@ body {
 
 #post-text:focus,
 #manual-post-text:focus,
+#manual-na-title:focus,
+#stop-na-title:focus,
 #edit-post-text:focus {
     outline: none;
     border-color: #333;
