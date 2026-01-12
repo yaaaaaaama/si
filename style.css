@@ -415,6 +415,14 @@ body {
   color: #666;
 }
 
+.home-memo-label {
+  margin: 8px 0 6px;
+  font-size: 18px;
+  color: #333;
+  font-weight: 700;
+  text-align: left;
+}
+
 .home-todo-text {
   font-size: 16px;
   color: #333;

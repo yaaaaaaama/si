@@ -320,12 +320,14 @@ class DataManager {
 
             return posts.map((post) => {
                 const recordedAt = post?.records?.recorded_at ?? post?.created_at; // フォールバック
+                const profile = Array.isArray(post.profiles) ? post.profiles[0] : post.profiles;
 
                 return {
                     id: post.id,
                     userId: post.user_id,
-                    userName: post.profiles.nickname,
-                    username: post.profiles.username,
+                    userName: profile?.nickname || '',
+                    username: profile?.username || '',
+                    avatarUrl: profile?.avatar_url || '',
                     recordId: post.records.id,
                     category: post.records.category,
                     minutes: post.records.minutes,
@@ -841,6 +843,7 @@ class App {
         const manualHoursEl = document.getElementById('manual-hours');
         const manualMinutesEl = document.getElementById('manual-minutes');
         const manualCategoryEl = document.getElementById('manual-category-select');
+        const manualGoalAddBtn = document.getElementById('manual-goal-add-btn');
 
         const getManualTotalMinutes = () => {
             const hours = parseInt(manualHoursEl?.value, 10) || 0;
@@ -880,6 +883,20 @@ class App {
                 if (na?.title) {
                     manualPostTextEl.value = String(na.title);
                     refreshManualNaSaveEnabled();
+                }
+            });
+        }
+
+        if (manualGoalAddBtn) {
+            manualGoalAddBtn.addEventListener('click', () => {
+                if (this.openGoalEditForm) {
+                    this.openGoalEditForm({
+                        category: '',
+                        weekdayMinutes: 0,
+                        weekendMinutes: 0,
+                        isActive: true,
+                        isNew: true
+                    });
                 }
             });
         }
@@ -2536,7 +2553,7 @@ class App {
         });
 
         const avatar = card.querySelector('.user-avatar');
-        const avatarUrl = post.profiles?.avatar_url || '';
+        const avatarUrl = post.avatarUrl || '';
         if (avatarUrl) {
             this.applyAvatarToElement(avatar, avatarUrl);
         } else if (post.isMyPost && this.dataManager.userProfile?.avatar_url) {
