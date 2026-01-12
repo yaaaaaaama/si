@@ -11,6 +11,8 @@ class DataManager {
         this.currentUser = await SupabaseAuth.getCurrentUser();
         if (this.currentUser) {
             this.userProfile = await SupabaseDB.getProfile(this.currentUser.id);
+            // ユーザーステータスをオンラインに設定
+            await SupabaseDB.updateUserStatus('online');
         }
         return !!this.currentUser;
     }
@@ -60,12 +62,16 @@ class DataManager {
         if (result.success) {
             this.currentUser = result.user;
             this.userProfile = await SupabaseDB.getProfile(result.user.id);
+            // ユーザーステータスをオンラインに設定
+            await SupabaseDB.updateUserStatus('online');
         }
         
         return result;
     }
 
     async logoutUser() {
+        // ログアウト前にステータスをオフラインに設定
+        await SupabaseDB.updateUserStatus('offline');
         await SupabaseAuth.signOut();
         this.currentUser = null;
         this.userProfile = null;
@@ -595,7 +601,7 @@ class App {
         });
 
         // ストップウォッチ
-        document.getElementById('start-btn').addEventListener('click', () => {
+        document.getElementById('start-btn').addEventListener('click', async () => {
         const memoEl = document.getElementById('stopwatch-memo');
 
         if (!this.stopwatch.isRunning) {
@@ -605,9 +611,16 @@ class App {
             document.getElementById('stop-btn').disabled = false;
 
             if (memoEl) memoEl.classList.remove('hidden');
+            
+            // ステータスを「計測中」に更新
+            const selectedCategory = document.getElementById('home-category-select').value;
+            await SupabaseDB.updateUserStatus('measuring', selectedCategory || null);
         } else {
             this.stopwatch.pause();
             document.getElementById('start-btn').textContent = '再開';
+            
+            // 一時停止時はステータスを「オンライン」に戻す
+            await SupabaseDB.updateUserStatus('online');
         }
         });
 
@@ -628,7 +641,7 @@ class App {
           });
         }
 
-        document.getElementById('stop-btn').addEventListener('click', () => {
+        document.getElementById('stop-btn').addEventListener('click', async () => {
         const minutes = this.stopwatch.getMinutes();
         const memoEl = document.getElementById('stopwatch-memo');
         const memoText = memoEl ? memoEl.value.trim() : '';
@@ -645,6 +658,9 @@ class App {
         document.getElementById('stop-btn').disabled = true;
 
         if (memoEl) memoEl.classList.add('hidden');
+        
+        // ステータスを「オンライン」に戻す
+        await SupabaseDB.updateUserStatus('online');
         });
 
         // 手動追加ボタン
@@ -2038,6 +2054,9 @@ class App {
 
     // コミュニティ機能
     async updateCommunity(filter = 'recommended') {
+        // アクティブユーザー数を更新
+        await this.updateActiveUsersCount();
+        
         const posts = await this.dataManager.getPosts(filter);
         const container = document.getElementById('posts-container');
         
@@ -2055,6 +2074,18 @@ class App {
 
         if (posts.length === 0) {
             container.innerHTML = '<p style="text-align: center; color: #999; padding: 40px;">投稿がありません</p>';
+        }
+    }
+
+    async updateActiveUsersCount() {
+        try {
+            const count = await SupabaseDB.getActiveFollowingCount();
+            const activeUsersText = document.getElementById('active-users-text');
+            if (activeUsersText) {
+                activeUsersText.textContent = `フォロー中 ${count}人 がアクティブ`;
+            }
+        } catch (error) {
+            console.error('Error updating active users count:', error);
         }
     }
 

@@ -591,6 +591,74 @@ const SupabaseDB = {
 
     if (error) throw error;
     return data;
+  },
+
+  // ユーザーステータス管理
+  // ステータスを更新または作成
+  async updateUserStatus(status, currentCategory = null) {
+    const user = await SupabaseAuth.getCurrentUser();
+    
+    const payload = {
+      user_id: user.id,
+      status,
+      current_category: currentCategory,
+      last_active_at: new Date().toISOString()
+    };
+
+    const { data, error } = await supabaseClient
+      .from('user_status')
+      .upsert([payload], { onConflict: 'user_id' })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  // 自分のステータスを取得
+  async getMyStatus() {
+    const user = await SupabaseAuth.getCurrentUser();
+    
+    const { data, error } = await supabaseClient
+      .from('user_status')
+      .select('*')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data;
+  },
+
+  // フォロー中のアクティブユーザー数を取得
+  async getActiveFollowingCount() {
+    const user = await SupabaseAuth.getCurrentUser();
+    
+    // フォロー中のユーザーIDを取得
+    const { data: follows, error: followsError } = await supabaseClient
+      .from('follows')
+      .select('following_id')
+      .eq('follower_id', user.id);
+
+    if (followsError) throw followsError;
+    
+    if (!follows || follows.length === 0) {
+      return 0;
+    }
+
+    const followingIds = follows.map(f => f.following_id);
+
+    // アクティブなユーザー（5分以内にアクティブ）をカウント
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    
+    const { count, error } = await supabaseClient
+      .from('user_status')
+      .select('*', { count: 'exact', head: true })
+      .in('user_id', followingIds)
+      .in('status', ['online', 'measuring'])
+      .gte('last_active_at', fiveMinutesAgo);
+
+    if (error) throw error;
+    return count || 0;
   }
 };
 
