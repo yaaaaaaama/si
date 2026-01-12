@@ -593,6 +593,20 @@ const SupabaseDB = {
     return data;
   },
 
+  async getAllNextActions() {
+    const user = await SupabaseAuth.getCurrentUser();
+
+    const { data, error } = await supabaseClient
+      .from('next_actions')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('done', false)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  },
+
   // ユーザーステータス管理
   // ステータスを更新または作成
   async updateUserStatus(status, currentCategory = null) {
@@ -647,15 +661,22 @@ const SupabaseDB = {
 
     const followingIds = follows.map(f => f.following_id);
 
-    // アクティブなユーザー（5分以内にアクティブ）をカウント
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-    
     const { count, error } = await supabaseClient
       .from('user_status')
       .select('*', { count: 'exact', head: true })
       .in('user_id', followingIds)
-      .in('status', ['online', 'measuring'])
-      .gte('last_active_at', fiveMinutesAgo);
+      .eq('status', 'measuring');
+
+    if (error) throw error;
+    return count || 0;
+  },
+
+  // 全ユーザーの計測中ユーザー数を取得
+  async getActiveMeasuringCountAll() {
+    const { count, error } = await supabaseClient
+      .from('user_status')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'measuring');
 
     if (error) throw error;
     return count || 0;

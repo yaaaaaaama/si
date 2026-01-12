@@ -142,13 +142,21 @@
                     <button type="button" class="secondary-btn" data-action="logout">ログアウト</button>
                 </div>
                 <div class="dashboard-header">
-                    <div class="week-total">
-                        <h2>今週の累計時間</h2>
-                        <div class="large-number" id="week-total">0時間0分</div>
-                        <div class="week-total-meta" id="week-goal-progress"></div>
+                    <div class="dashboard-avatar">
+                        <button id="dashboard-avatar-btn" class="dashboard-avatar-btn" type="button" aria-label="プロフィール画像">
+                            <img id="dashboard-avatar-img" class="dashboard-avatar-img hidden" alt="プロフィール画像">
+                            <span id="dashboard-avatar-fallback" class="dashboard-avatar-fallback">🙂</span>
+                        </button>
                     </div>
-                    <div class="streak">
-                        <span id="streak-days">連続0日間</span>
+                    <div class="dashboard-summary">
+                        <div class="week-total">
+                            <h2>今週の累計時間</h2>
+                            <div class="large-number" id="week-total">0時間0分</div>
+                            <div class="week-total-meta" id="week-goal-progress"></div>
+                        </div>
+                        <div class="streak">
+                            <span id="streak-days">連続0日間</span>
+                        </div>
                     </div>
                 </div>
 
@@ -386,6 +394,32 @@
             </div>
         </div>
     </div>
+
+    <!-- プロフィール画像モーダル -->
+    <div id="profile-modal" class="modal hidden">
+        <div class="modal-content profile-modal-content">
+            <div class="profile-modal-image-wrap">
+                <img id="profile-modal-img" class="profile-modal-img" alt="プロフィール画像">
+            </div>
+            <button id="profile-edit-btn" class="primary-btn" type="button">編集</button>
+            <button id="profile-close-btn" class="secondary-btn" type="button">閉じる</button>
+        </div>
+    </div>
+
+    <!-- プロフィール編集モーダル -->
+    <div id="profile-edit-modal" class="modal hidden">
+        <div class="modal-content profile-modal-content">
+            <h3>プロフィール画像を変更</h3>
+            <div class="profile-edit-actions">
+                <button id="profile-take-photo-btn" class="primary-btn" type="button">写真を撮る</button>
+                <button id="profile-choose-photo-btn" class="secondary-btn" type="button">フォルダから選択</button>
+            </div>
+            <button id="profile-edit-cancel-btn" class="secondary-btn" type="button">キャンセル</button>
+        </div>
+    </div>
+
+    <input type="file" id="profile-camera-input" accept="image/*" capture="environment" class="hidden">
+    <input type="file" id="profile-file-input" accept="image/*" class="hidden">
 
     <!-- 編集モーダル -->
     <div id="edit-modal" class="modal hidden">

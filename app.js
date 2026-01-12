@@ -147,6 +147,23 @@ class DataManager {
         }
     }
 
+    async getNextActionsMap() {
+        try {
+            const actions = await SupabaseDB.getAllNextActions();
+            const map = {};
+            actions.forEach(action => {
+                if (!action?.category) return;
+                if (!map[action.category]) {
+                    map[action.category] = action;
+                }
+            });
+            return map;
+        } catch (error) {
+            console.error('Get next actions map error:', error);
+            return {};
+        }
+    }
+
     // 記録管理
     async addRecord(category, minutes, text = '', isPublic = true, createdAtIso = null) {
         try {
@@ -453,6 +470,8 @@ class App {
         this.naMenuHandlerBound = false;
         this.activeUsersTimer = null;
         this.statusHeartbeatTimer = null;
+        this.currentStatus = 'online';
+        this.tabId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : `tab-${Date.now()}-${Math.random().toString(16).slice(2)}`;
         
          this.weekOffset = 0;
 
@@ -495,6 +514,7 @@ class App {
         document.getElementById('app-screen').classList.remove('hidden');
         this.updateUI();
         this.updateHomeCategorySelect();
+        this.applyProfileImage();
         this.startStatusHeartbeat();
     }
 
@@ -615,6 +635,8 @@ class App {
             
             // ステータスを「計測中」に更新
             const selectedCategory = document.getElementById('home-category-select').value;
+            this.currentStatus = 'measuring';
+            this.updateMeasuringPresence(true);
             await SupabaseDB.updateUserStatus('measuring', selectedCategory || null);
             if (this.isCommunityActive()) {
                 await this.updateActiveUsersCount();
@@ -624,6 +646,8 @@ class App {
             document.getElementById('start-btn').textContent = '再開';
             
             // 一時停止時はステータスを「オンライン」に戻す
+            this.currentStatus = 'online';
+            this.updateMeasuringPresence(false);
             await SupabaseDB.updateUserStatus('online');
             if (this.isCommunityActive()) {
                 await this.updateActiveUsersCount();
@@ -665,6 +689,8 @@ class App {
         document.getElementById('stop-btn').disabled = true;
         
         // ステータスを「オンライン」に戻す
+        this.currentStatus = 'online';
+        this.updateMeasuringPresence(false);
         await SupabaseDB.updateUserStatus('online');
         if (this.isCommunityActive()) {
             await this.updateActiveUsersCount();
@@ -715,7 +741,7 @@ class App {
                 this.lastRecordCategory = category;
 
                 this.hideCategoryModal();
-                await this.updateUI();
+                await this.updateDashboard({ refreshCategories: false, refreshGoals: false });
 
                 const memoEl = document.getElementById('stopwatch-memo');
                 if (memoEl) memoEl.value = '';
@@ -836,7 +862,6 @@ class App {
         if (manualCategoryEl) {
             manualCategoryEl.addEventListener('change', async () => {
                 if (!manualPostTextEl) return;
-                if (manualPostTextEl.value.trim()) return;
                 const category = manualCategoryEl.value;
                 if (!category) return;
                 const na = await this.dataManager.getNextActionByCategory(category);
@@ -870,7 +895,7 @@ class App {
 
             this.lastRecordCategory = category;
             this.pendingViewAfterNa = (isPublic && text) ? 'community' : null;
-            await this.updateUI();
+            await this.updateDashboard({ refreshCategories: false, refreshGoals: false });
             return { category };
         };
 
@@ -938,7 +963,7 @@ class App {
                 if (this.currentViewUserId) {
                     await this.showUserPage(this.currentViewUserId);
                 } else {
-                    await this.updateUI();
+                    await this.updateDashboard({ refreshCategories: false, refreshGoals: false });
                     await this.refreshCommunityIfActive();
                 }
             }
@@ -1147,6 +1172,94 @@ class App {
             });
         }
 
+        // プロフィール画像
+        const avatarBtn = document.getElementById('dashboard-avatar-btn');
+        const profileModal = document.getElementById('profile-modal');
+        const profileModalImg = document.getElementById('profile-modal-img');
+        const profileEditBtn = document.getElementById('profile-edit-btn');
+        const profileCloseBtn = document.getElementById('profile-close-btn');
+        const takePhotoBtn = document.getElementById('profile-take-photo-btn');
+        const choosePhotoBtn = document.getElementById('profile-choose-photo-btn');
+        const cancelEditBtn = document.getElementById('profile-edit-cancel-btn');
+        const fileInput = document.getElementById('profile-file-input');
+        const cameraInput = document.getElementById('profile-camera-input');
+
+        if (avatarBtn && profileModal) {
+            avatarBtn.addEventListener('click', () => {
+                this.openProfileModal();
+            });
+        }
+
+        if (profileEditBtn) {
+            profileEditBtn.addEventListener('click', () => {
+                const editModal = document.getElementById('profile-edit-modal');
+                if (editModal) editModal.classList.remove('hidden');
+                if (takePhotoBtn) {
+                    takePhotoBtn.classList.toggle('hidden', !this.isMobileDevice());
+                }
+            });
+        }
+
+        if (profileCloseBtn && profileModal) {
+            profileCloseBtn.addEventListener('click', () => {
+                profileModal.classList.add('hidden');
+                const editModal = document.getElementById('profile-edit-modal');
+                if (editModal) editModal.classList.add('hidden');
+            });
+        }
+
+        if (cancelEditBtn) {
+            cancelEditBtn.addEventListener('click', () => {
+                const editModal = document.getElementById('profile-edit-modal');
+                if (editModal) editModal.classList.add('hidden');
+            });
+        }
+
+        if (takePhotoBtn && cameraInput) {
+            takePhotoBtn.addEventListener('click', () => {
+                cameraInput.click();
+            });
+        }
+
+        if (choosePhotoBtn && fileInput) {
+            choosePhotoBtn.addEventListener('click', () => {
+                fileInput.click();
+            });
+        }
+
+        const handleProfileFile = (input) => {
+            const file = input?.files?.[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+                const dataUrl = typeof reader.result === 'string' ? reader.result : '';
+                if (!dataUrl) return;
+                this.saveProfileImage(dataUrl);
+                this.applyProfileImage();
+                if (profileModalImg) profileModalImg.src = dataUrl;
+                const editModal = document.getElementById('profile-edit-modal');
+                if (editModal) editModal.classList.add('hidden');
+            };
+            reader.readAsDataURL(file);
+            input.value = '';
+        };
+
+        if (fileInput) {
+            fileInput.addEventListener('change', () => handleProfileFile(fileInput));
+        }
+        if (cameraInput) {
+            cameraInput.addEventListener('change', () => handleProfileFile(cameraInput));
+        }
+
+        window.addEventListener('storage', (e) => {
+            if (e.key !== this.getMeasuringPresenceKey()) return;
+            if (this.isMeasuringInAnyTab()) {
+                this.currentStatus = 'measuring';
+            } else if (!this.stopwatch?.isRunning) {
+                this.currentStatus = 'online';
+            }
+        });
+
         // コミュニティタブ
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -1314,6 +1427,14 @@ class App {
         const profile = await SupabaseDB.getProfile(userId);
         document.getElementById('user-profile-name').textContent = profile.nickname;
         document.getElementById('user-profile-username').textContent = `@${profile.username}`;
+        const avatarLarge = document.querySelector('.user-avatar-large');
+        if (avatarLarge) {
+            if (userId === this.dataManager.currentUser.id) {
+                this.applyAvatarToElement(avatarLarge, this.getProfileImage());
+            } else {
+                this.applyAvatarToElement(avatarLarge, null);
+            }
+        }
 
         // フォローボタンの表示制御
         const followBtn = document.getElementById('follow-btn');
@@ -1649,14 +1770,42 @@ class App {
         await this.updateCommunity(activeTab);
     }
 
-    async updateDashboard() {
-        this.dataManager.categories = await this.dataManager.getCategories();
-        // goals をロードして保持
-        this.dataManager.goals = await this.dataManager.getGoals();
-        this.updateGoalRegistrationUI();
-        await this.updateNextActions();
+    async updateDashboard(options = {}) {
+        const {
+            refreshCategories = true,
+            refreshGoals = true,
+            refreshNextActions = true
+        } = options;
+        const dashboardActive = typeof this.isDashboardActive === 'function' ? this.isDashboardActive() : true;
+        const homeActive = typeof this.isHomeActive === 'function' ? this.isHomeActive() : true;
 
-        const weekRecords = await this.dataManager.getWeekRecords(this.weekOffset);
+        const categoriesPromise = refreshCategories
+            ? this.dataManager.getCategories()
+            : Promise.resolve(this.dataManager.categories || []);
+        const goalsPromise = refreshGoals
+            ? this.dataManager.getGoals()
+            : Promise.resolve(this.dataManager.goals || {});
+        const weekRecordsPromise = this.dataManager.getWeekRecords(this.weekOffset);
+        const streakPromise = this.dataManager.getStreak();
+
+        const [categories, goals, weekRecords, streak] = await Promise.all([
+            categoriesPromise,
+            goalsPromise,
+            weekRecordsPromise,
+            streakPromise
+        ]);
+
+        this.dataManager.categories = categories;
+        this.dataManager.goals = goals;
+
+        if (dashboardActive) {
+            this.updateGoalRegistrationUI();
+        }
+
+        if (refreshNextActions && homeActive) {
+            await this.updateNextActions();
+        }
+
         const { start } = this.dataManager.getWeekRange(this.weekOffset);
 
         const totalMinutes = weekRecords.reduce((sum, r) => sum + r.minutes, 0);
@@ -1677,11 +1826,12 @@ class App {
             }
         }
 
-        const streak = await this.dataManager.getStreak();
         document.getElementById('streak-days').textContent = `連続${streak}日間`;
 
-        this.updateProgressBars(weekRecords);
-        this.updateChart(weekRecords, start);
+        if (dashboardActive) {
+            this.updateProgressBars(weekRecords);
+            this.updateChart(weekRecords, start);
+        }
     }
 
     async updateNextActions() {
@@ -1702,14 +1852,10 @@ class App {
             return;
         }
 
-        const actions = await Promise.all(
-            categories.map(async (category) => {
-                const na = await this.dataManager.getNextActionByCategory(category);
-                return { category, na };
-            })
-        );
+        const actionsMap = await this.dataManager.getNextActionsMap();
 
-        actions.forEach(({ category, na }) => {
+        categories.forEach((category) => {
+            const na = actionsMap[category] || null;
             const item = document.createElement('div');
             item.className = 'na-item';
             item.dataset.category = category;
@@ -2095,10 +2241,10 @@ class App {
 
     // コミュニティ機能
     async updateCommunity(filter = 'recommended') {
-        // アクティブユーザー数を更新
-        await this.updateActiveUsersCount();
-        
-        const posts = await this.dataManager.getPosts(filter);
+        const [posts] = await Promise.all([
+            this.dataManager.getPosts(filter),
+            this.updateActiveUsersCount()
+        ]);
         const container = document.getElementById('posts-container');
         
         if (!container) {
@@ -2120,10 +2266,17 @@ class App {
 
     async updateActiveUsersCount() {
         try {
-            const count = await SupabaseDB.getActiveFollowingCount();
+            const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'recommended';
+            const count = activeTab === 'following'
+                ? await SupabaseDB.getActiveFollowingCount()
+                : await SupabaseDB.getActiveMeasuringCountAll();
             const activeUsersText = document.getElementById('active-users-text');
             if (activeUsersText) {
-                activeUsersText.textContent = `フォロー中 ${count}人 がアクティブ`;
+                if (activeTab === 'following') {
+                    activeUsersText.textContent = `フォロー中 ${count}人 がアクティブ`;
+                } else {
+                    activeUsersText.textContent = `計測中 ${count}人`;
+                }
             }
         } catch (error) {
             console.error('Error updating active users count:', error);
@@ -2152,18 +2305,161 @@ class App {
         return Boolean(view && view.classList.contains('active'));
     }
 
+    isHomeActive() {
+        const view = document.getElementById('home-view');
+        return Boolean(view && view.classList.contains('active'));
+    }
+
+    isDashboardActive() {
+        const view = document.getElementById('dashboard-view');
+        return Boolean(view && view.classList.contains('active'));
+    }
+
+    getProfileImageKey() {
+        const userId = this.dataManager?.currentUser?.id || 'guest';
+        return `profileImage:${userId}`;
+    }
+
+    getMeasuringPresenceKey() {
+        const userId = this.dataManager?.currentUser?.id || 'guest';
+        return `measuringPresence:${userId}`;
+    }
+
+    updateMeasuringPresence(isMeasuring) {
+        const key = this.getMeasuringPresenceKey();
+        try {
+            const raw = localStorage.getItem(key);
+            const map = raw ? JSON.parse(raw) : {};
+            if (isMeasuring) {
+                map[this.tabId] = Date.now();
+            } else {
+                delete map[this.tabId];
+            }
+            localStorage.setItem(key, JSON.stringify(map));
+        } catch (error) {
+            console.error('Update measuring presence error:', error);
+        }
+    }
+
+    isMeasuringInAnyTab() {
+        const key = this.getMeasuringPresenceKey();
+        try {
+            const raw = localStorage.getItem(key);
+            const map = raw ? JSON.parse(raw) : {};
+            const now = Date.now();
+            let changed = false;
+            Object.keys(map).forEach((tabId) => {
+                const ts = Number(map[tabId]) || 0;
+                if (now - ts > 30000) {
+                    delete map[tabId];
+                    changed = true;
+                }
+            });
+            if (changed) {
+                localStorage.setItem(key, JSON.stringify(map));
+            }
+            return Object.keys(map).length > 0;
+        } catch (error) {
+            console.error('Check measuring presence error:', error);
+            return false;
+        }
+    }
+
+    getProfileImage() {
+        try {
+            return localStorage.getItem(this.getProfileImageKey());
+        } catch (error) {
+            console.error('Get profile image error:', error);
+            return null;
+        }
+    }
+
+    saveProfileImage(dataUrl) {
+        try {
+            localStorage.setItem(this.getProfileImageKey(), dataUrl);
+        } catch (error) {
+            console.error('Save profile image error:', error);
+        }
+    }
+
+    applyProfileImage() {
+        const img = document.getElementById('dashboard-avatar-img');
+        const fallback = document.getElementById('dashboard-avatar-fallback');
+        const profileModalImg = document.getElementById('profile-modal-img');
+        const dataUrl = this.getProfileImage();
+        const userId = this.dataManager?.currentUser?.id;
+
+        if (img) {
+            if (dataUrl) {
+                img.src = dataUrl;
+                img.classList.remove('hidden');
+                if (fallback) fallback.classList.add('hidden');
+            } else {
+                img.removeAttribute('src');
+                img.classList.add('hidden');
+                if (fallback) fallback.classList.remove('hidden');
+            }
+        }
+
+        if (profileModalImg) {
+            profileModalImg.src = dataUrl || '';
+        }
+
+        if (userId) {
+            document
+                .querySelectorAll(`.post-user[data-user-id="${userId}"] .user-avatar`)
+                .forEach((el) => this.applyAvatarToElement(el, dataUrl));
+            const userAvatarLarge = document.querySelector('.user-avatar-large');
+            if (userAvatarLarge && this.currentViewUserId === userId) {
+                this.applyAvatarToElement(userAvatarLarge, dataUrl);
+            }
+        }
+    }
+
+    openProfileModal() {
+        const modal = document.getElementById('profile-modal');
+        const profileModalImg = document.getElementById('profile-modal-img');
+        const dataUrl = this.getProfileImage();
+        if (profileModalImg) {
+            profileModalImg.src = dataUrl || '';
+        }
+        if (modal) modal.classList.remove('hidden');
+    }
+
+    isMobileDevice() {
+        if (navigator.userAgentData && typeof navigator.userAgentData.mobile === 'boolean') {
+            return navigator.userAgentData.mobile;
+        }
+        return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    }
+
+    applyAvatarToElement(el, dataUrl) {
+        if (!el) return;
+        if (dataUrl) {
+            el.style.backgroundImage = `url("${dataUrl}")`;
+            el.classList.add('has-image');
+        } else {
+            el.style.backgroundImage = '';
+            el.classList.remove('has-image');
+        }
+    }
+
     startStatusHeartbeat() {
         this.stopStatusHeartbeat();
         const tick = async () => {
             if (!this.dataManager?.currentUser) return;
-            const isMeasuring = this.stopwatch?.isRunning;
-            const status = isMeasuring ? 'measuring' : 'online';
+            const isMeasuring = this.stopwatch?.isRunning || this.isMeasuringInAnyTab();
+            const status = isMeasuring ? 'measuring' : (this.currentStatus || 'online');
             let category = null;
-            if (isMeasuring) {
+            if (this.stopwatch?.isRunning) {
                 const selectedCategory = document.getElementById('home-category-select')?.value;
                 category = selectedCategory || null;
             }
+            this.currentStatus = status;
             try {
+                if (this.stopwatch?.isRunning) {
+                    this.updateMeasuringPresence(true);
+                }
                 await SupabaseDB.updateUserStatus(status, category);
             } catch (error) {
                 console.error('Status heartbeat error:', error);
@@ -2236,6 +2532,14 @@ class App {
         });
 
         if (post.isMyPost) {
+            const dataUrl = this.getProfileImage();
+            const avatar = card.querySelector('.user-avatar');
+            if (avatar && dataUrl) {
+                this.applyAvatarToElement(avatar, dataUrl);
+            }
+        }
+
+        if (post.isMyPost) {
             const menuBtn = card.querySelector('.post-menu-btn');
             const menu = card.querySelector('.post-menu-dropdown');
             const menuItems = card.querySelectorAll('.post-menu-item');
@@ -2266,7 +2570,7 @@ class App {
                         if (!ok) return;
                         await this.dataManager.deleteRecord(post.recordId);
                         menu.classList.add('hidden');
-                        await this.updateUI();
+                    await this.updateDashboard({ refreshCategories: false, refreshGoals: false });
                         const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'recommended';
                         await this.updateCommunity(activeTab);
                     }
