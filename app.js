@@ -147,6 +147,18 @@ class DataManager {
         }
     }
 
+    async uploadProfileAvatar(file) {
+        try {
+            const avatarUrl = await SupabaseDB.uploadProfileAvatar(file);
+            const profile = await SupabaseDB.updateProfileAvatarUrl(avatarUrl);
+            this.userProfile = profile;
+            return avatarUrl;
+        } catch (error) {
+            console.error('Upload profile avatar error:', error);
+            return null;
+        }
+    }
+
     async getNextActionsMap() {
         try {
             const actions = await SupabaseDB.getAllNextActions();
@@ -1230,17 +1242,19 @@ class App {
         const handleProfileFile = (input) => {
             const file = input?.files?.[0];
             if (!file) return;
-            const reader = new FileReader();
-            reader.onload = () => {
-                const dataUrl = typeof reader.result === 'string' ? reader.result : '';
-                if (!dataUrl) return;
-                this.saveProfileImage(dataUrl);
-                this.applyProfileImage();
-                if (profileModalImg) profileModalImg.src = dataUrl;
+            this.setProfileButtonsDisabled(true);
+            this.dataManager.uploadProfileAvatar(file).then((avatarUrl) => {
+                if (avatarUrl) {
+                    this.applyProfileImage();
+                    if (profileModalImg) profileModalImg.src = avatarUrl;
+                } else {
+                    alert('画像の保存に失敗しました。');
+                }
                 const editModal = document.getElementById('profile-edit-modal');
                 if (editModal) editModal.classList.add('hidden');
-            };
-            reader.readAsDataURL(file);
+            }).finally(() => {
+                this.setProfileButtonsDisabled(false);
+            });
             input.value = '';
         };
 
@@ -1430,9 +1444,9 @@ class App {
         const avatarLarge = document.querySelector('.user-avatar-large');
         if (avatarLarge) {
             if (userId === this.dataManager.currentUser.id) {
-                this.applyAvatarToElement(avatarLarge, this.getProfileImage());
+                this.applyAvatarToElement(avatarLarge, this.dataManager.userProfile?.avatar_url || '');
             } else {
-                this.applyAvatarToElement(avatarLarge, null);
+                this.applyAvatarToElement(avatarLarge, profile.avatar_url || '');
             }
         }
 
@@ -2315,11 +2329,6 @@ class App {
         return Boolean(view && view.classList.contains('active'));
     }
 
-    getProfileImageKey() {
-        const userId = this.dataManager?.currentUser?.id || 'guest';
-        return `profileImage:${userId}`;
-    }
-
     getMeasuringPresenceKey() {
         const userId = this.dataManager?.currentUser?.id || 'guest';
         return `measuringPresence:${userId}`;
@@ -2365,28 +2374,11 @@ class App {
         }
     }
 
-    getProfileImage() {
-        try {
-            return localStorage.getItem(this.getProfileImageKey());
-        } catch (error) {
-            console.error('Get profile image error:', error);
-            return null;
-        }
-    }
-
-    saveProfileImage(dataUrl) {
-        try {
-            localStorage.setItem(this.getProfileImageKey(), dataUrl);
-        } catch (error) {
-            console.error('Save profile image error:', error);
-        }
-    }
-
     applyProfileImage() {
         const img = document.getElementById('dashboard-avatar-img');
         const fallback = document.getElementById('dashboard-avatar-fallback');
         const profileModalImg = document.getElementById('profile-modal-img');
-        const dataUrl = this.getProfileImage();
+        const dataUrl = this.dataManager?.userProfile?.avatar_url || '';
         const userId = this.dataManager?.currentUser?.id;
 
         if (img) {
@@ -2419,11 +2411,23 @@ class App {
     openProfileModal() {
         const modal = document.getElementById('profile-modal');
         const profileModalImg = document.getElementById('profile-modal-img');
-        const dataUrl = this.getProfileImage();
+        const dataUrl = this.dataManager?.userProfile?.avatar_url || '';
         if (profileModalImg) {
             profileModalImg.src = dataUrl || '';
         }
         if (modal) modal.classList.remove('hidden');
+    }
+
+    setProfileButtonsDisabled(disabled) {
+        const buttons = [
+            document.getElementById('profile-edit-btn'),
+            document.getElementById('profile-take-photo-btn'),
+            document.getElementById('profile-choose-photo-btn'),
+            document.getElementById('profile-edit-cancel-btn')
+        ];
+        buttons.forEach(btn => {
+            if (btn) btn.disabled = disabled;
+        });
     }
 
     isMobileDevice() {
@@ -2531,12 +2535,12 @@ class App {
             await this.updateCommunity(document.querySelector('.tab-btn.active').dataset.tab);
         });
 
-        if (post.isMyPost) {
-            const dataUrl = this.getProfileImage();
-            const avatar = card.querySelector('.user-avatar');
-            if (avatar && dataUrl) {
-                this.applyAvatarToElement(avatar, dataUrl);
-            }
+        const avatar = card.querySelector('.user-avatar');
+        const avatarUrl = post.profiles?.avatar_url || '';
+        if (avatarUrl) {
+            this.applyAvatarToElement(avatar, avatarUrl);
+        } else if (post.isMyPost && this.dataManager.userProfile?.avatar_url) {
+            this.applyAvatarToElement(avatar, this.dataManager.userProfile.avatar_url);
         }
 
         if (post.isMyPost) {

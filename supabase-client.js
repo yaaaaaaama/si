@@ -79,6 +79,39 @@ const SupabaseDB = {
     return data;
   },
 
+  async updateProfileAvatarUrl(avatarUrl) {
+    const user = await SupabaseAuth.getCurrentUser();
+    const { data, error } = await supabaseClient
+      .from('profiles')
+      .update({ avatar_url: avatarUrl })
+      .eq('id', user.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async uploadProfileAvatar(file) {
+    const user = await SupabaseAuth.getCurrentUser();
+    const ext = file.name.split('.').pop() || 'jpg';
+    const filePath = `${user.id}.${ext}`;
+
+    const { error: uploadError } = await supabaseClient
+      .storage
+      .from('avatars')
+      .upload(filePath, file, { upsert: true });
+
+    if (uploadError) throw uploadError;
+
+    const { data } = supabaseClient
+      .storage
+      .from('avatars')
+      .getPublicUrl(filePath);
+
+    return data.publicUrl;
+  },
+
   // カテゴリ追加
   async addCategory(name) {
     const user = await SupabaseAuth.getCurrentUser();
@@ -318,7 +351,8 @@ const SupabaseDB = {
         ),
         profiles (
           nickname,
-          username
+          username,
+          avatar_url
         )
       `)
       .order('recorded_at', { ascending: false, foreignTable: 'records', nullsFirst: false })
