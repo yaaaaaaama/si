@@ -954,6 +954,8 @@ class App {
         const goalEditSaveBtn = document.getElementById('goal-edit-save-btn');
         const goalEditCancelBtn = document.getElementById('goal-edit-cancel-btn');
         const goalAddBtn = document.getElementById('goal-add-btn');
+        const homeGoalAddBtn = document.getElementById('home-goal-add-btn');
+        const categoryGoalAddBtn = document.getElementById('category-goal-add-btn');
 
         const setupGoalTimeSelects = (hoursEl, minutesEl) => {
             if (!hoursEl || !minutesEl) return;
@@ -1089,6 +1091,28 @@ class App {
         }
         if (goalAddBtn) {
             goalAddBtn.addEventListener('click', () => {
+                openGoalEditForm({
+                    category: '',
+                    weekdayMinutes: 0,
+                    weekendMinutes: 0,
+                    isActive: true,
+                    isNew: true
+                });
+            });
+        }
+        if (homeGoalAddBtn) {
+            homeGoalAddBtn.addEventListener('click', () => {
+                openGoalEditForm({
+                    category: '',
+                    weekdayMinutes: 0,
+                    weekendMinutes: 0,
+                    isActive: true,
+                    isNew: true
+                });
+            });
+        }
+        if (categoryGoalAddBtn) {
+            categoryGoalAddBtn.addEventListener('click', () => {
                 openGoalEditForm({
                     category: '',
                     weekdayMinutes: 0,
@@ -1762,6 +1786,10 @@ class App {
         const entries = Object.entries(this.dataManager.goals || {});
         const activeEntries = entries.filter(([, goal]) => goal?.isActive !== false);
         const inactiveEntries = entries.filter(([, goal]) => goal?.isActive === false);
+        const activeHeader = sectionActive?.querySelector('h4');
+        if (activeHeader) {
+            activeHeader.classList.toggle('hidden', inactiveEntries.length === 0);
+        }
 
         listActive.innerHTML = '';
         listInactive.innerHTML = '';

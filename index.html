@@ -17,24 +17,24 @@
             </div>
             
             <!-- ログインフォーム -->
-            <div id="login-form" class="auth-form active">
+            <form id="login-form" class="auth-form active">
                 <input type="email" id="login-email" placeholder="メールアドレス" required>
                 <input type="password" id="login-password" placeholder="パスワード" required>
-                <button id="login-submit-btn" class="primary-btn">ログイン</button>
+                <button id="login-submit-btn" class="primary-btn" type="button">ログイン</button>
                 <p class="error-message" id="login-error"></p>
-            </div>
+            </form>
             
             <!-- 新規登録フォーム -->
-            <div id="register-form" class="auth-form">
+            <form id="register-form" class="auth-form">
                 <input type="email" id="register-email" placeholder="メールアドレス" required>
                 <input type="password" id="register-password" placeholder="パスワード（8文字以上）" minlength="8" required>
                 <input type="password" id="register-password-confirm" placeholder="パスワード（確認）" minlength="8" required>
                 <input type="text" id="register-nickname" placeholder="ニックネーム" maxlength="20" required>
                 <input type="text" id="register-username" placeholder="ユーザー名（@username）" maxlength="20" pattern="^[a-zA-Z0-9_]+$" required>
                 <p class="input-hint">ユーザー名は半角英数字とアンダースコアのみ</p>
-                <button id="register-submit-btn" class="primary-btn">登録</button>
+                <button id="register-submit-btn" class="primary-btn" type="button">登録</button>
                 <p class="error-message" id="register-error"></p>
-            </div>
+            </form>
         </div>
     </div>
 
@@ -66,9 +66,12 @@
                     <div class="stopwatch-display" id="stopwatch">00:00:00</div>
                     <!-- ホーム：カテゴリ選択 + やること表示 -->
                     <div class="home-task">
-                    <select id="home-category-select" class="home-category-select">
-                        <option value="">カテゴリを選択</option>
-                    </select>
+                    <div class="home-category-row">
+                        <select id="home-category-select" class="home-category-select">
+                            <option value="">カテゴリを選択</option>
+                        </select>
+                        <button id="home-goal-add-btn" class="home-goal-add-btn" type="button" aria-label="カテゴリを追加">＋</button>
+                    </div>
 
                     <div id="home-todo-box" class="home-todo-box hidden">
                         <div class="home-todo-head">
@@ -210,9 +213,12 @@
         <div class="modal-content">
             <h3>計測時間: <span id="recorded-time">0分</span></h3>
             <h4>カテゴリを選択</h4>
-            <select id="category-select">
-                <option value="">選択してください</option>
-            </select>
+            <div class="category-select-row">
+                <select id="category-select">
+                    <option value="">選択してください</option>
+                </select>
+                <button id="category-goal-add-btn" class="category-goal-add-btn" type="button" aria-label="カテゴリを追加">＋</button>
+            </div>
             <h4>一言（任意）</h4>
             <textarea id="post-text" placeholder="今日の感想を書く..." maxlength="100"></textarea>
             <h4>次のやること（任意）</h4>
@@ -342,19 +348,27 @@
                 <label class="goal-register-label">
                     <span>平日（1日あたり）</span>
                     <div class="goal-time-select">
-                        <select id="goal-edit-weekday-hours"></select>
-                        <span>時間</span>
-                        <select id="goal-edit-weekday-minutes"></select>
-                        <span>分</span>
+                        <div class="goal-time-field">
+                            <span>時間</span>
+                            <select id="goal-edit-weekday-hours"></select>
+                        </div>
+                        <div class="goal-time-field">
+                            <span>分</span>
+                            <select id="goal-edit-weekday-minutes"></select>
+                        </div>
                     </div>
                 </label>
                 <label class="goal-register-label">
                     <span>土日（1日あたり）</span>
                     <div class="goal-time-select">
-                        <select id="goal-edit-weekend-hours"></select>
-                        <span>時間</span>
-                        <select id="goal-edit-weekend-minutes"></select>
-                        <span>分</span>
+                        <div class="goal-time-field">
+                            <span>時間</span>
+                            <select id="goal-edit-weekend-hours"></select>
+                        </div>
+                        <div class="goal-time-field">
+                            <span>分</span>
+                            <select id="goal-edit-weekend-minutes"></select>
+                        </div>
                     </div>
                 </label>
             </div>
