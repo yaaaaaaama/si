@@ -83,16 +83,16 @@
                         <div id="home-todo-text" class="home-todo-text"></div>
                     </div>
                     </div>
+                    <textarea
+                    id="stopwatch-memo"
+                    class="stopwatch-memo"
+                    placeholder="いまやっていることをメモ（保存時に反映されます）"
+                    maxlength="200"
+                    ></textarea>
                     <div class="stopwatch-controls">
                         <button id="start-btn" class="control-btn start-btn">開始</button>
                         <button id="stop-btn" class="control-btn stop-btn" disabled>停止</button>
                     </div>
-                    <textarea
-                    id="stopwatch-memo"
-                    class="stopwatch-memo hidden"
-                    placeholder="いまやっていることをメモ（保存時に反映されます）"
-                    maxlength="200"
-                    ></textarea>
                     <button id="manual-add-btn" class="manual-add-btn">+ 手動で記録を追加</button>
                 </div>
                 <div class="na-section">
@@ -123,6 +123,10 @@
         <!-- コミュニティ画面 -->
         <div id="community-view" class="view">
             <div class="container">
+                <div class="active-users-banner">
+                    <span class="active-users-icon">🟢</span>
+                    <span id="active-users-text">フォロー中 0人 がアクティブ</span>
+                </div>
                 <div class="community-tabs">
                     <button class="tab-btn active" data-tab="recommended">おすすめ</button>
                     <button class="tab-btn" data-tab="following">フォロー中</button>

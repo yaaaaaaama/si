@@ -373,6 +373,9 @@ body {
   background: #fff;
 }
 
+.home-category-row .home-category-select {
+  margin-bottom: 0;
+}
 .home-goal-add-btn {
   width: 44px;
   height: 44px;
@@ -1344,6 +1347,34 @@ body {
 }
 
 /* コミュニティタブ */
+.active-users-banner {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 12px 20px;
+    border-radius: 10px;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    font-size: 15px;
+    font-weight: 500;
+}
+
+.active-users-icon {
+    font-size: 18px;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
 .community-tabs {
     display: flex;
     gap: 10px;
