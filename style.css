@@ -357,6 +357,13 @@ body {
   text-align: left;
 }
 
+.home-category-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
 .home-category-select {
   width: 100%;
   padding: 12px;
@@ -365,6 +372,29 @@ body {
   font-size: 16px;
   margin-bottom: 12px;
   background: #fff;
+}
+
+.home-category-row .home-category-select {
+  margin-bottom: 0;
+}
+
+.home-goal-add-btn {
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 12px;
+  background: #f0f0f0;
+  color: #333;
+  font-size: 22px;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.home-goal-add-btn:hover {
+  background: #e0e0e0;
 }
 
 .home-todo-box {

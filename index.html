@@ -66,9 +66,12 @@
                     <div class="stopwatch-display" id="stopwatch">00:00:00</div>
                     <!-- ホーム：カテゴリ選択 + やること表示 -->
                     <div class="home-task">
-                    <select id="home-category-select" class="home-category-select">
-                        <option value="">カテゴリを選択</option>
-                    </select>
+                    <div class="home-category-row">
+                        <select id="home-category-select" class="home-category-select">
+                            <option value="">カテゴリを選択</option>
+                        </select>
+                        <button id="home-goal-add-btn" class="home-goal-add-btn" type="button" aria-label="カテゴリを追加">＋</button>
+                    </div>
 
                     <div id="home-todo-box" class="home-todo-box hidden">
                         <div class="home-todo-head">
@@ -80,16 +83,16 @@
                         <div id="home-todo-text" class="home-todo-text"></div>
                     </div>
                     </div>
+                    <textarea
+                    id="stopwatch-memo"
+                    class="stopwatch-memo"
+                    placeholder="いまやっていることをメモ（保存時に反映されます）"
+                    maxlength="200"
+                    ></textarea>
                     <div class="stopwatch-controls">
                         <button id="start-btn" class="control-btn start-btn">開始</button>
                         <button id="stop-btn" class="control-btn stop-btn" disabled>停止</button>
                     </div>
-                    <textarea
-                    id="stopwatch-memo"
-                    class="stopwatch-memo hidden"
-                    placeholder="いまやっていることをメモ（保存時に反映されます）"
-                    maxlength="200"
-                    ></textarea>
                     <button id="manual-add-btn" class="manual-add-btn">+ 手動で記録を追加</button>
                 </div>
                 <div class="na-section">

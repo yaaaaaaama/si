@@ -451,6 +451,8 @@ class App {
         this.goalMenuHandlerBound = false;
         this.goalMenuBound = false;
         this.naMenuHandlerBound = false;
+        this.activeUsersTimer = null;
+        this.statusHeartbeatTimer = null;
         
          this.weekOffset = 0;
 
@@ -493,6 +495,7 @@ class App {
         document.getElementById('app-screen').classList.remove('hidden');
         this.updateUI();
         this.updateHomeCategorySelect();
+        this.startStatusHeartbeat();
     }
 
     toDatetimeLocalValue(d) {
@@ -609,18 +612,22 @@ class App {
             document.getElementById('start-btn').textContent = '一時停止';
             document.getElementById('start-btn').classList.add('paused');
             document.getElementById('stop-btn').disabled = false;
-
-            if (memoEl) memoEl.classList.remove('hidden');
             
             // ステータスを「計測中」に更新
             const selectedCategory = document.getElementById('home-category-select').value;
             await SupabaseDB.updateUserStatus('measuring', selectedCategory || null);
+            if (this.isCommunityActive()) {
+                await this.updateActiveUsersCount();
+            }
         } else {
             this.stopwatch.pause();
             document.getElementById('start-btn').textContent = '再開';
             
             // 一時停止時はステータスを「オンライン」に戻す
             await SupabaseDB.updateUserStatus('online');
+            if (this.isCommunityActive()) {
+                await this.updateActiveUsersCount();
+            }
         }
         });
 
@@ -656,11 +663,12 @@ class App {
         document.getElementById('start-btn').textContent = '開始';
         document.getElementById('start-btn').classList.remove('paused');
         document.getElementById('stop-btn').disabled = true;
-
-        if (memoEl) memoEl.classList.add('hidden');
         
         // ステータスを「オンライン」に戻す
         await SupabaseDB.updateUserStatus('online');
+        if (this.isCommunityActive()) {
+            await this.updateActiveUsersCount();
+        }
         });
 
         // 手動追加ボタン
@@ -1165,6 +1173,7 @@ class App {
 
         btn.disabled = true;
         try {
+            this.stopStatusHeartbeat();
             await this.dataManager.logoutUser();
 
             // 次回ログイン時に変なビューが残らないように戻す（任意だけどおすすめ）
@@ -1258,8 +1267,12 @@ class App {
         
         if (viewName === 'dashboard') {
             await this.updateDashboard();
+            this.stopActiveUsersPolling();
         } else if (viewName === 'community') {
             await this.updateCommunity('recommended');
+            this.startActiveUsersPolling();
+        } else {
+            this.stopActiveUsersPolling();
         }
     }
 
@@ -2086,6 +2099,57 @@ class App {
             }
         } catch (error) {
             console.error('Error updating active users count:', error);
+        }
+    }
+
+    startActiveUsersPolling() {
+        this.stopActiveUsersPolling();
+        this.updateActiveUsersCount();
+        this.activeUsersTimer = setInterval(() => {
+            if (this.isCommunityActive()) {
+                this.updateActiveUsersCount();
+            }
+        }, 20000);
+    }
+
+    stopActiveUsersPolling() {
+        if (this.activeUsersTimer) {
+            clearInterval(this.activeUsersTimer);
+            this.activeUsersTimer = null;
+        }
+    }
+
+    isCommunityActive() {
+        const view = document.getElementById('community-view');
+        return Boolean(view && view.classList.contains('active'));
+    }
+
+    startStatusHeartbeat() {
+        this.stopStatusHeartbeat();
+        const tick = async () => {
+            if (!this.dataManager?.currentUser) return;
+            const isMeasuring = this.stopwatch?.isRunning;
+            const status = isMeasuring ? 'measuring' : 'online';
+            let category = null;
+            if (isMeasuring) {
+                const selectedCategory = document.getElementById('home-category-select')?.value;
+                category = selectedCategory || null;
+            }
+            try {
+                await SupabaseDB.updateUserStatus(status, category);
+            } catch (error) {
+                console.error('Status heartbeat error:', error);
+            }
+        };
+
+        tick();
+        this.statusHeartbeatTimer = setInterval(tick, 60000);
+    }
+
+    stopStatusHeartbeat() {
+        if (this.statusHeartbeatTimer) {
+            clearInterval(this.statusHeartbeatTimer);
+            this.statusHeartbeatTimer = null;
         }
     }
 
