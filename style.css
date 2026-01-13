@@ -938,6 +938,20 @@ body {
     margin-bottom: 20px;
 }
 
+.chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.chart-legend {
+    font-size: 12px;
+    color: #666;
+    white-space: nowrap;
+}
+
 #week-chart {
     max-height: 250px;
 }

@@ -162,7 +162,10 @@
                 </div>
 
                 <div class="chart-section">
-                    <h3>日次達成状況</h3>
+                    <div class="chart-header">
+                        <h3>日次達成状況</h3>
+                        <span class="chart-legend">棒＝実績 / 横棒＝目標</span>
+                    </div>
                     <canvas id="week-chart"></canvas>
                     
                     <div class="week-nav">
@@ -232,11 +235,11 @@
                 </select>
                 <button id="category-goal-add-btn" class="category-goal-add-btn" type="button" aria-label="カテゴリを追加">＋</button>
             </div>
-            <h4>一言（任意）</h4>
+            <h4>やったこと</h4>
             <textarea id="post-text" placeholder="今日の感想を書く..." maxlength="100"></textarea>
-            <h4>次のやること（任意）</h4>
+            <h4>やること</h4>
             <textarea id="stop-na-title" placeholder="例：英語の発音練習" maxlength="100"></textarea>
-            <h4>日付（任意）</h4>
+            <h4>いつやる</h4>
             <input type="date" id="stop-na-datetime">
             <div class="post-options">
                 <label>
@@ -244,7 +247,10 @@
                     <span>コミュニティに投稿する</span>
                 </label>
             </div>
-            <button id="save-record-btn" class="primary-btn" disabled>保存</button>
+            <div class="modal-actions">
+                <button id="cancel-record-btn" class="secondary-btn" type="button">キャンセル</button>
+                <button id="save-record-btn" class="primary-btn" disabled>保存</button>
+            </div>
         </div>
     </div>
 
@@ -269,6 +275,7 @@
     <div id="manual-add-modal" class="modal hidden">
         <div class="modal-content">
             <h3>計測を手動追加</h3>
+            <h4>作業日 / 作業時間</h4>
             <div class="manual-date-time">
                 <div class="manual-date-block">
                     <span class="manual-field-label">日付</span>
@@ -334,7 +341,7 @@
                 <h4>やること</h4>
                 <textarea id="manual-na-title" placeholder="例）〇〇資料の作成 / リスニング / 〇〇を読んだ" maxlength="100"></textarea>
 
-                <h4>日付（任意）</h4>
+                <h4>いつやる</h4>
                 <input type="date" id="manual-na-datetime">
 
                 <div class="post-options">

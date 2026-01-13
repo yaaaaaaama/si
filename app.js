@@ -720,6 +720,13 @@ class App {
             document.getElementById('save-record-btn').disabled = !e.target.value;
         });
 
+        const cancelRecordBtn = document.getElementById('cancel-record-btn');
+        if (cancelRecordBtn) {
+            cancelRecordBtn.addEventListener('click', () => {
+                this.hideCategoryModal();
+            });
+        }
+
         document.getElementById('save-record-btn').addEventListener('click', async () => {
             const category = document.getElementById('category-select').value;
             const minutes = parseInt(document.getElementById('recorded-time').textContent);
@@ -2105,10 +2112,11 @@ class App {
         const start = new Date(weekStartDate);
         start.setHours(0, 0, 0, 0);
 
+        const weekdayLabels = ['日', '月', '火', '水', '木', '金', '土'];
         const labels = Array.from({ length: 7 }, (_, i) => {
             const dt = new Date(start);
             dt.setDate(start.getDate() + i);
-            return `${dt.getMonth() + 1}/${dt.getDate()}`;
+            return `${dt.getMonth() + 1}/${dt.getDate()}(${weekdayLabels[dt.getDay()]})`;
         });
 
         const data = Array(7).fill(0);
