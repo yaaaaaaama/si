@@ -7,6 +7,10 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <!-- ローディング画面 -->
+    <div id="loading-screen" class="screen loading-screen">
+        <div class="loading-spinner"></div>
+    </div>
     <!-- ログイン画面 -->
     <div id="login-screen" class="screen">
         <div class="container">
@@ -100,6 +104,9 @@
                     <div class="section-header">
                         <h3>やること</h3>
                     </div>
+                    <div class="block-loader hidden" id="na-list-loader">
+                        <div class="block-spinner"></div>
+                    </div>
                     <div id="na-list"></div>
                 </div>
             </div>
@@ -132,6 +139,9 @@
                     <button class="tab-btn active" data-tab="recommended">おすすめ</button>
                     <button class="tab-btn" data-tab="following">フォロー中</button>
                 </div>
+                <div class="block-loader hidden" id="posts-loader">
+                    <div class="block-spinner"></div>
+                </div>
                 <div id="posts-container"></div>
             </div>
         </div>
@@ -149,28 +159,42 @@
                             <span id="dashboard-avatar-fallback" class="dashboard-avatar-fallback">🙂</span>
                         </button>
                     </div>
-                    <div class="dashboard-summary">
-                        <div class="week-total">
-                            <h2>今週の累計時間</h2>
-                            <div class="large-number" id="week-total">0時間0分</div>
-                            <div class="week-total-meta" id="week-goal-progress"></div>
+                    <div class="today-summary">
+                        <div class="today-progress-label">今日の達成率</div>
+                        <div class="today-bar" aria-hidden="true">
+                            <div class="today-bar-fill" id="today-bar-fill"></div>
                         </div>
-                        <div class="streak">
-                            <span id="streak-days">連続0日間</span>
-                        </div>
+                        <div class="today-values" id="today-values">0時間0分 / 0時間0分</div>
+                        <div class="today-rate" id="today-rate">達成率 0%</div>
+                        <div class="today-message" id="today-message">まずは、やってみよう！</div>
                     </div>
                 </div>
 
                 <div class="chart-section">
-                    <div class="chart-header">
-                        <h3>日次達成状況</h3>
-                        <span class="chart-legend">棒＝実績 / 横棒＝目標</span>
-                    </div>
-                    <canvas id="week-chart"></canvas>
-                    
-                    <div class="week-nav">
-                        <button id="week-prev-btn" class="secondary-btn week-nav-btn">←</button>
-                        <button id="week-next-btn" class="secondary-btn week-nav-btn">→</button>
+                    <div class="chart-layout">
+                        <div class="week-total-panel">
+                            <h3>今週の累計時間</h3>
+                            <div class="large-number" id="week-total">0時間0分</div>
+                            <div class="week-total-meta" id="week-goal-progress"></div>
+                            <div class="streak">
+                                <span id="streak-days">連続0日間</span>
+                            </div>
+                        </div>
+                        <div class="chart-panel">
+                            <div class="chart-header">
+                                <h3>日次達成状況</h3>
+                                <span class="chart-legend">棒＝実績 / 横棒＝目標</span>
+                            </div>
+                            <div class="block-loader hidden" id="week-chart-loader">
+                                <div class="block-spinner"></div>
+                            </div>
+                            <canvas id="week-chart"></canvas>
+                            
+                            <div class="week-nav">
+                                <button id="week-prev-btn" class="secondary-btn week-nav-btn">←</button>
+                                <button id="week-next-btn" class="secondary-btn week-nav-btn">→</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 

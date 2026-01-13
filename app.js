@@ -250,34 +250,47 @@ class DataManager {
 
     async getStreak() {
         try {
-            const records = await SupabaseDB.getMyRecords();
-            
-            if (records.length === 0) return 0;
-            
-            const dates = [...new Set(records.map(r => new Date(r.recorded_at).toDateString()))];
-            dates.sort((a, b) => new Date(b) - new Date(a));
-            
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const lookbackDays = 400; // ここは必要なら増やす
+            const start = new Date(today);
+            start.setDate(start.getDate() - lookbackDays);
+
+            // recorded_at だけ + 直近期間だけ取得
+            const records = await SupabaseDB.getMyRecords(
+            start.toISOString(),
+            null,
+            'recorded_at',
+            5000
+            );
+
+            if (!records || records.length === 0) return 0;
+
+            const dateSet = new Set(
+            records
+                .filter(r => r.recorded_at)
+                .map(r => new Date(r.recorded_at).toDateString())
+            );
+
+            const dates = Array.from(dateSet).sort((a, b) => new Date(b) - new Date(a));
+
             let streak = 0;
-            let currentDate = new Date();
-            currentDate.setHours(0, 0, 0, 0);
-            
-            for (let date of dates) {
-                const recordDate = new Date(date);
-                const diffDays = Math.floor((currentDate - recordDate) / (1000 * 60 * 60 * 24));
-                
-                if (diffDays === streak) {
-                    streak++;
-                } else {
-                    break;
-                }
+            for (const d of dates) {
+            const recordDate = new Date(d);
+            recordDate.setHours(0, 0, 0, 0);
+            const diffDays = Math.floor((today - recordDate) / 86400000);
+
+            if (diffDays === streak) streak++;
+            else if (diffDays > streak) break;
             }
-            
             return streak;
         } catch (error) {
             console.error('Get streak error:', error);
             return 0;
         }
     }
+
 
     // 目標管理
     async setGoal(category, weekdayMinutes, weekendMinutes, isActive) {
@@ -510,12 +523,14 @@ class App {
     }
 
     showLogin() {
+        document.getElementById('loading-screen')?.classList.add('hidden');
         document.getElementById('login-screen').classList.remove('hidden');
         document.getElementById('email-confirmation-screen').classList.add('hidden');
         document.getElementById('app-screen').classList.add('hidden');
     }
 
     showEmailConfirmation(email) {
+        document.getElementById('loading-screen')?.classList.add('hidden');
         document.getElementById('login-screen').classList.add('hidden');
         document.getElementById('email-confirmation-screen').classList.remove('hidden');
         document.getElementById('app-screen').classList.add('hidden');
@@ -523,6 +538,7 @@ class App {
     }
 
     showApp() {
+        document.getElementById('loading-screen')?.classList.add('hidden');
         document.getElementById('login-screen').classList.add('hidden');
         document.getElementById('email-confirmation-screen').classList.add('hidden');
         document.getElementById('app-screen').classList.remove('hidden');
@@ -1816,6 +1832,9 @@ class App {
         } = options;
         const dashboardActive = typeof this.isDashboardActive === 'function' ? this.isDashboardActive() : true;
         const homeActive = typeof this.isHomeActive === 'function' ? this.isHomeActive() : true;
+        if (dashboardActive) {
+            this.toggleBlockLoader('week-chart-loader', true);
+        }
 
         const categoriesPromise = refreshCategories
             ? this.dataManager.getCategories()
@@ -1864,11 +1883,59 @@ class App {
             }
         }
 
+        const today = new Date();
+        const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const todayMinutes = weekRecords.reduce((sum, r) => {
+            const recordedAt = new Date(r.recorded_at ?? r.created_at);
+            if (isNaN(recordedAt.getTime())) return sum;
+            const d = new Date(recordedAt.getFullYear(), recordedAt.getMonth(), recordedAt.getDate());
+            return d.getTime() === todayStart.getTime() ? sum + (Number(r.minutes) || 0) : sum;
+        }, 0);
+        const isWeekend = today.getDay() === 0 || today.getDay() === 6;
+        const todayGoalMinutes = Object.values(this.dataManager.goals || {})
+            .filter(goal => goal?.isActive !== false)
+            .reduce((sum, goal) => {
+                const minutes = Number(isWeekend ? goal.weekendMinutes : goal.weekdayMinutes) || 0;
+                return sum + minutes;
+            }, 0);
+        const todayValuesEl = document.getElementById('today-values');
+        if (todayValuesEl) {
+            todayValuesEl.textContent = `${this.formatDuration(todayMinutes)} / ${this.formatDuration(todayGoalMinutes)}`;
+        }
+        const todayRateEl = document.getElementById('today-rate');
+        const todayMessageEl = document.getElementById('today-message');
+        const todayRate = todayGoalMinutes > 0 ? Math.min(Math.round((todayMinutes / todayGoalMinutes) * 100), 999) : 0;
+        if (todayRateEl) {
+            todayRateEl.textContent = `達成率 ${todayRate}%`;
+        }
+        if (todayMessageEl) {
+            let message = 'まずは、やってみよう！';
+            if (todayRate >= 1 && todayRate <= 49) {
+                message = 'まずは50％を目指そう！';
+            } else if (todayRate >= 50 && todayRate <= 90) {
+                message = '達成が見えてきた！';
+            } else if (todayRate >= 91 && todayRate <= 99) {
+                message = 'あと一歩…！';
+            } else if (todayRate >= 100) {
+                message = '達成おめでとう！明日も頑張ろうね！';
+            }
+            todayMessageEl.textContent = message;
+        }
+        const todayBarFill = document.getElementById('today-bar-fill');
+        if (todayBarFill) {
+            const ratio = todayGoalMinutes > 0 ? Math.min((todayMinutes / todayGoalMinutes) * 100, 100) : 0;
+            todayBarFill.style.width = `${ratio}%`;
+        }
+
         document.getElementById('streak-days').textContent = `連続${streak}日間`;
 
         if (dashboardActive) {
-            this.updateProgressBars(weekRecords);
-            this.updateChart(weekRecords, start);
+            try {
+                this.updateProgressBars(weekRecords);
+                this.updateChart(weekRecords, start);
+            } finally {
+                this.toggleBlockLoader('week-chart-loader', false);
+            }
         }
     }
 
@@ -1876,41 +1943,46 @@ class App {
         const list = document.getElementById('na-list');
         if (!list) return;
 
+        this.toggleBlockLoader('na-list-loader', true);
         list.innerHTML = '';
 
-        const categories = Object.entries(this.dataManager.goals || {})
-            .filter(([, goal]) => goal?.isActive !== false)
-            .map(([cat]) => cat);
+        try {
+            const categories = Object.entries(this.dataManager.goals || {})
+                .filter(([, goal]) => goal?.isActive !== false)
+                .map(([cat]) => cat);
 
-        if (categories.length === 0) {
-            const p = document.createElement('p');
-            p.className = 'na-empty';
-            p.textContent = 'カテゴリがありません';
-            list.appendChild(p);
-            return;
+            if (categories.length === 0) {
+                const p = document.createElement('p');
+                p.className = 'na-empty';
+                p.textContent = 'カテゴリがありません';
+                list.appendChild(p);
+                return;
+            }
+
+            const actionsMap = await this.dataManager.getNextActionsMap();
+
+            categories.forEach((category) => {
+                const na = actionsMap[category] || null;
+                const item = document.createElement('div');
+                item.className = 'na-item';
+                item.dataset.category = category;
+                const title = na?.title ? this.escapeHtml(na.title) : '未設定';
+                const dateText = na?.scheduled_at ? this.formatNaDateTime(na.scheduled_at) : '';
+                item.innerHTML = `
+                    <div class="na-meta">
+                        <span class="na-category">${this.escapeHtml(category)}</span>
+                        <button class="na-menu-btn" type="button" aria-label="NAメニュー">⋯</button>
+                    </div>
+                    <div class="na-title-row">
+                        ${dateText ? `<span class="na-date">${this.escapeHtml(dateText)}</span>` : ''}
+                        <span class="na-title-text">${title}</span>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+        } finally {
+            this.toggleBlockLoader('na-list-loader', false);
         }
-
-        const actionsMap = await this.dataManager.getNextActionsMap();
-
-        categories.forEach((category) => {
-            const na = actionsMap[category] || null;
-            const item = document.createElement('div');
-            item.className = 'na-item';
-            item.dataset.category = category;
-            const title = na?.title ? this.escapeHtml(na.title) : '未設定';
-            const dateText = na?.scheduled_at ? this.formatNaDateTime(na.scheduled_at) : '';
-            item.innerHTML = `
-                <div class="na-meta">
-                    <span class="na-category">${this.escapeHtml(category)}</span>
-                    <button class="na-menu-btn" type="button" aria-label="NAメニュー">⋯</button>
-                </div>
-                <div class="na-title-row">
-                    ${dateText ? `<span class="na-date">${this.escapeHtml(dateText)}</span>` : ''}
-                    <span class="na-title-text">${title}</span>
-                </div>
-            `;
-            list.appendChild(item);
-        });
     }
 
     formatNaDateTime(iso) {
@@ -2280,6 +2352,7 @@ class App {
 
     // コミュニティ機能
     async updateCommunity(filter = 'recommended') {
+        this.toggleBlockLoader('posts-loader', true);
         const [posts] = await Promise.all([
             this.dataManager.getPosts(filter),
             this.updateActiveUsersCount()
@@ -2301,6 +2374,13 @@ class App {
         if (posts.length === 0) {
             container.innerHTML = '<p style="text-align: center; color: #999; padding: 40px;">投稿がありません</p>';
         }
+        this.toggleBlockLoader('posts-loader', false);
+    }
+
+    toggleBlockLoader(id, isLoading) {
+        const loader = document.getElementById(id);
+        if (!loader) return;
+        loader.classList.toggle('hidden', !isLoading);
     }
 
     async updateActiveUsersCount() {

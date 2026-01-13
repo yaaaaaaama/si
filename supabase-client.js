@@ -240,6 +240,27 @@ const SupabaseDB = {
     return data;
   },
 
+    // 自分の記録取得
+  async getMyRecords(startDate = null, endDate = null, columns = '*', limitCount = null) {
+    const user = await SupabaseAuth.getCurrentUser();
+
+    let query = supabaseClient
+      .from('records')
+      .select(columns)
+      .eq('user_id', user.id)
+      .order('recorded_at', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false });
+
+    if (startDate) query = query.gte('recorded_at', startDate);
+    if (endDate) query = query.lte('recorded_at', endDate);
+    if (typeof limitCount === 'number') query = query.limit(limitCount);
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return data;
+  },
+
+
   // 特定ユーザーの記録取得（公開のみ）
   async getUserRecords(userId) {
     let query = supabaseClient
