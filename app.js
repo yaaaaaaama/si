@@ -1948,9 +1948,18 @@ class App {
         }
         const todayRateEl = document.getElementById('today-rate');
         const todayMessageEl = document.getElementById('today-message');
+        const todayValuesEl = document.getElementById('today-values');
+        const todayBarFill = document.getElementById('today-bar-fill');
         const todayRate = todayGoalMinutes > 0 ? Math.min(Math.round((todayMinutes / todayGoalMinutes) * 100), 999) : 0;
         if (todayRateEl) {
             todayRateEl.textContent = `達成率 ${todayRate}%`;
+        }
+        if (todayValuesEl) {
+            todayValuesEl.textContent = `${this.formatDuration(todayMinutes)} / ${this.formatDuration(todayGoalMinutes)}`;
+        }
+        if (todayBarFill) {
+            const width = todayGoalMinutes > 0 ? Math.min(Math.round((todayMinutes / todayGoalMinutes) * 100), 100) : 0;
+            todayBarFill.style.width = `${width}%`;
         }
         if (todayMessageEl) {
             let message = 'まずは、やってみよう！';
