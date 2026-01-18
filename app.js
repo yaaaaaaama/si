@@ -1104,7 +1104,11 @@ class App {
             const category = goalEditCategory ? goalEditCategory.value.trim() : '';
             const weekdayMinutes = getGoalMinutesValue(goalEditWeekdayHours, goalEditWeekdayMinutes);
             const weekendMinutes = getGoalMinutesValue(goalEditWeekendHours, goalEditWeekendMinutes);
-            const isValid = Boolean(category) && Number.isFinite(weekdayMinutes) && Number.isFinite(weekendMinutes);
+            const weeklyMinutes = weekdayMinutes * 5 + weekendMinutes * 2;
+            const isValid = Boolean(category)
+                && Number.isFinite(weekdayMinutes)
+                && Number.isFinite(weekendMinutes)
+                && weeklyMinutes >= 30;
             goalEditSaveBtn.disabled = !isValid;
         };
 
@@ -1156,6 +1160,11 @@ class App {
                 const weekendMinutes = getGoalMinutesValue(goalEditWeekendHours, goalEditWeekendMinutes);
                 const isActive = goalEditApplyFlag ? goalEditApplyFlag.checked : true;
                 if (!categoryInput) return;
+                const weeklyMinutes = weekdayMinutes * 5 + weekendMinutes * 2;
+                if (weeklyMinutes < 30) {
+                    alert('週合計30分以上で設定してください。');
+                    return;
+                }
 
                 const isNew = !this.currentGoalEditCategory;
                 const targetCategory = isNew ? categoryInput : this.currentGoalEditCategory;
