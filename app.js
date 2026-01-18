@@ -19,6 +19,16 @@ class DataManager {
 
     // ユーザー認証
     async registerUser(email, password, nickname, username) {
+        try {
+            const taken = await SupabaseDB.isUsernameTaken(username);
+            if (taken) {
+                return { success: false, error: 'このユーザー名はすでに使用されています' };
+            }
+        } catch (error) {
+            console.error('Username check error:', error);
+            return { success: false, error: 'ユーザー名の確認に失敗しました' };
+        }
+
         const result = await SupabaseAuth.signUp(email, password, nickname, username);
         
         if (result.success) {
@@ -548,6 +558,28 @@ class App {
         this.startStatusHeartbeat();
     }
 
+    formatAuthErrorMessage(message) {
+        if (!message) return '';
+        if (message.includes('Invalid login credentials')) {
+            return 'メールアドレスかパスワードが間違っています';
+        }
+        if (
+            message.includes('Unable to validate email address') ||
+            message.includes('invalid format') ||
+            (message.includes('Email address') && message.includes('invalid'))
+        ) {
+            return 'メールアドレスの形式が正しくありません';
+        }
+        if (message.includes('User already registered')) {
+            return 'このメールアドレスはすでに登録されています';
+        }
+        return message;
+    }
+
+    isValidEmail(email) {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    }
+
     toDatetimeLocalValue(d) {
     const yyyy = d.getFullYear();
     const mm = String(d.getMonth() + 1).padStart(2, '0');
@@ -597,12 +629,18 @@ class App {
                 document.getElementById('login-error').textContent = 'すべての項目を入力してください';
                 return;
             }
+
+            if (!this.isValidEmail(email)) {
+                document.getElementById('login-error').textContent = 'メールアドレスの形式が正しくありません';
+                return;
+            }
             
             const result = await this.dataManager.loginUser(email, password);
             if (result.success) {
                 this.showApp();
             } else {
-                document.getElementById('login-error').textContent = result.error || 'ログインに失敗しました';
+                const message = this.formatAuthErrorMessage(result.error);
+                document.getElementById('login-error').textContent = message || 'ログインに失敗しました';
             }
         });
 
@@ -620,6 +658,11 @@ class App {
             // バリデーション
             if (!email || !password || !passwordConfirm || !nickname || !username) {
                 errorElement.textContent = 'すべての項目を入力してください';
+                return;
+            }
+
+            if (!this.isValidEmail(email)) {
+                errorElement.textContent = 'メールアドレスの形式が正しくありません';
                 return;
             }
             
@@ -649,7 +692,8 @@ class App {
                 }
             } else {
                 errorElement.style.color = '#e74c3c';
-                errorElement.textContent = result.error || '登録に失敗しました';
+                const message = this.formatAuthErrorMessage(result.error);
+                errorElement.textContent = message || '登録に失敗しました';
             }
         });
 
@@ -1104,11 +1148,7 @@ class App {
             const category = goalEditCategory ? goalEditCategory.value.trim() : '';
             const weekdayMinutes = getGoalMinutesValue(goalEditWeekdayHours, goalEditWeekdayMinutes);
             const weekendMinutes = getGoalMinutesValue(goalEditWeekendHours, goalEditWeekendMinutes);
-            const weeklyMinutes = weekdayMinutes * 5 + weekendMinutes * 2;
-            const isValid = Boolean(category)
-                && Number.isFinite(weekdayMinutes)
-                && Number.isFinite(weekendMinutes)
-                && weeklyMinutes >= 30;
+            const isValid = Boolean(category) && Number.isFinite(weekdayMinutes) && Number.isFinite(weekendMinutes);
             goalEditSaveBtn.disabled = !isValid;
         };
 
@@ -1160,11 +1200,6 @@ class App {
                 const weekendMinutes = getGoalMinutesValue(goalEditWeekendHours, goalEditWeekendMinutes);
                 const isActive = goalEditApplyFlag ? goalEditApplyFlag.checked : true;
                 if (!categoryInput) return;
-                const weeklyMinutes = weekdayMinutes * 5 + weekendMinutes * 2;
-                if (weeklyMinutes < 30) {
-                    alert('週合計30分以上で設定してください。');
-                    return;
-                }
 
                 const isNew = !this.currentGoalEditCategory;
                 const targetCategory = isNew ? categoryInput : this.currentGoalEditCategory;
@@ -1565,7 +1600,7 @@ class App {
     }
 
     async showCategoryModal(minutes, memoText = '') {
-        document.getElementById('recorded-time').textContent = `${minutes}分`;
+        document.getElementById('recorded-time').textContent = this.formatDuration(minutes);
         await this.updateCategorySelect();
         const categorySelect = document.getElementById('category-select');
         const homeCategorySelect = document.getElementById('home-category-select');
@@ -1907,9 +1942,9 @@ class App {
                 const minutes = Number(isWeekend ? goal.weekendMinutes : goal.weekdayMinutes) || 0;
                 return sum + minutes;
             }, 0);
-        const todayValuesEl = document.getElementById('today-values');
-        if (todayValuesEl) {
-            todayValuesEl.textContent = `${this.formatDuration(todayMinutes)} / ${this.formatDuration(todayGoalMinutes)}`;
+        const todayGoalEl = document.getElementById('today-goal-time');
+        if (todayGoalEl) {
+            todayGoalEl.textContent = this.formatDuration(todayGoalMinutes);
         }
         const todayRateEl = document.getElementById('today-rate');
         const todayMessageEl = document.getElementById('today-message');
@@ -1929,11 +1964,6 @@ class App {
                 message = '達成おめでとう！明日も頑張ろうね！';
             }
             todayMessageEl.textContent = message;
-        }
-        const todayBarFill = document.getElementById('today-bar-fill');
-        if (todayBarFill) {
-            const ratio = todayGoalMinutes > 0 ? Math.min((todayMinutes / todayGoalMinutes) * 100, 100) : 0;
-            todayBarFill.style.width = `${ratio}%`;
         }
 
         document.getElementById('streak-days').textContent = `連続${streak}日間`;
@@ -2403,7 +2433,7 @@ class App {
                 if (activeTab === 'following') {
                     activeUsersText.textContent = `フォロー中 ${count}人 がアクティブ`;
                 } else {
-                    activeUsersText.textContent = `計測中 ${count}人`;
+                    activeUsersText.textContent = `作業中 ${count}人`;
                 }
             }
         } catch (error) {

@@ -40,7 +40,9 @@ const SupabaseAuth = {
       if (error) throw error;
       return { success: true, user: data.user };
     } catch (error) {
-      console.error('Sign in error:', error);
+      if (!String(error?.message || '').includes('Invalid login credentials')) {
+        console.error('Sign in error:', error);
+      }
       return { success: false, error: error.message };
     }
   },
@@ -92,6 +94,17 @@ const SupabaseDB = {
     return data;
   },
 
+  async isUsernameTaken(username) {
+    const { data, error } = await supabaseClient
+      .from('profiles')
+      .select('id')
+      .eq('username', username)
+      .limit(1);
+
+    if (error) throw error;
+    return (data && data.length > 0);
+  },
+
   async uploadProfileAvatar(file) {
     const user = await SupabaseAuth.getCurrentUser();
     const ext = file.name.split('.').pop() || 'jpg';
@@ -128,6 +141,7 @@ const SupabaseDB = {
   // カテゴリ一覧取得
   async getCategories() {
     const user = await SupabaseAuth.getCurrentUser();
+    if (!user) return [];
     const { data, error } = await supabaseClient
       .from('categories')
       .select('*')
@@ -666,6 +680,7 @@ const SupabaseDB = {
   // ステータスを更新または作成
   async updateUserStatus(status, currentCategory = null) {
     const user = await SupabaseAuth.getCurrentUser();
+    if (!user) return null;
     
     const payload = {
       user_id: user.id,
