@@ -148,12 +148,48 @@ class DataManager {
         }
     }
 
+    async getAllNextActions() {
+        try {
+            return await SupabaseDB.getAllNextActions();
+        } catch (error) {
+            console.error('Get all next actions error:', error);
+            return [];
+        }
+    }
+
+    async getAllNextActionsWithProfiles() {
+        try {
+            return await SupabaseDB.getAllNextActionsWithProfiles();
+        } catch (error) {
+            console.error('Get all next actions with profiles error:', error);
+            return [];
+        }
+    }
+
+    async getFollowingNextActionsWithProfiles() {
+        try {
+            return await SupabaseDB.getFollowingNextActionsWithProfiles();
+        } catch (error) {
+            console.error('Get following next actions with profiles error:', error);
+            return [];
+        }
+    }
+
     async getNextActionByCategory(category) {
         try {
             return await SupabaseDB.getNextActionByCategory(category);
         } catch (error) {
             console.error('Get next action by category error:', error);
             return null;
+        }
+    }
+
+    async deleteNextActionsByCategory(category) {
+        try {
+            return await SupabaseDB.deleteNextActionsByCategory(category);
+        } catch (error) {
+            console.error('Delete next actions by category error:', error);
+            return false;
         }
     }
 
@@ -508,6 +544,8 @@ class App {
         this.activeUsersTimer = null;
         this.statusHeartbeatTimer = null;
         this.currentStatus = 'online';
+        this.manualAddMode = 'manual';
+        this.manualStopMinutes = 0;
         this.tabId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : `tab-${Date.now()}-${Math.random().toString(16).slice(2)}`;
         
          this.weekOffset = 0;
@@ -746,6 +784,28 @@ class App {
           });
         }
 
+        const stopNaTodayBtn = document.getElementById('stop-na-today-btn');
+        if (stopNaTodayBtn) {
+            stopNaTodayBtn.addEventListener('click', () => {
+                const today = new Date();
+                const stopNaDateEl = document.getElementById('stop-na-datetime');
+                if (stopNaDateEl) {
+                    stopNaDateEl.value = this.toDateInputValue(today);
+                }
+            });
+        }
+
+        const manualNaTodayBtn = document.getElementById('manual-na-today-btn');
+        if (manualNaTodayBtn) {
+            manualNaTodayBtn.addEventListener('click', () => {
+                const today = new Date();
+                const manualNaDateEl = document.getElementById('manual-na-datetime');
+                if (manualNaDateEl) {
+                    manualNaDateEl.value = this.toDateInputValue(today);
+                }
+            });
+        }
+
         document.getElementById('stop-btn').addEventListener('click', async () => {
         const minutes = this.stopwatch.getMinutes();
         const memoEl = document.getElementById('stopwatch-memo');
@@ -753,7 +813,7 @@ class App {
 
         if (minutes > 0) {
             this.currentStopwatchRecordedAtIso = new Date().toISOString();
-            this.showCategoryModal(minutes, memoText);
+            this.showManualAddModal('stop', minutes, memoText);
         }
 
         this.stopwatch.stop();
@@ -773,7 +833,7 @@ class App {
 
         // 手動追加ボタン
         document.getElementById('manual-add-btn').addEventListener('click', () => {
-            this.showManualAddModal();
+            this.showManualAddModal('manual');
         });
 
         document.getElementById('category-select').addEventListener('change', (e) => {
@@ -789,11 +849,12 @@ class App {
 
         document.getElementById('save-record-btn').addEventListener('click', async () => {
             const category = document.getElementById('category-select').value;
-            const minutes = parseInt(document.getElementById('recorded-time').textContent);
+            const recordedTimeEl = document.getElementById('recorded-time');
+            const minutes = Number(recordedTimeEl?.dataset?.minutes) || 0;
             const text = document.getElementById('post-text').value.trim();
             const naTitle = document.getElementById('stop-na-title').value.trim();
             const naDateValue = document.getElementById('stop-na-datetime').value;
-            const isPublic = document.getElementById('post-public').checked;
+            const isPublic = true;
 
             if (category && minutes > 0) {
                 const ok = await this.dataManager.addRecord(
@@ -828,13 +889,7 @@ class App {
                 if (memoEl) memoEl.value = '';
                 this.currentStopwatchRecordedAtIso = null;
 
-                // 保存後に「次のやること」モーダルを開く
-                // コミュニティへの遷移は NA 入力後（またはスキップ後）に行う
-                this.pendingViewAfterNa = (isPublic && text) ? 'community' : null;
-                if (this.pendingViewAfterNa) {
-                    this.switchView(this.pendingViewAfterNa);
-                    this.pendingViewAfterNa = null;
-                }
+                this.switchView('dashboard');
             }
         });
 
@@ -913,6 +968,9 @@ class App {
         const manualGoalAddBtn = document.getElementById('manual-goal-add-btn');
 
         const getManualTotalMinutes = () => {
+            if (this.manualAddMode === 'stop') {
+                return Number(this.manualStopMinutes) || 0;
+            }
             const hours = parseInt(manualHoursEl?.value, 10) || 0;
             const minutes = parseInt(manualMinutesEl?.value, 10) || 0;
             return hours * 60 + minutes;
@@ -976,21 +1034,25 @@ class App {
             const totalMinutes = getManualTotalMinutes();
             const category = manualCategoryEl ? manualCategoryEl.value : '';
             const text = manualPostTextEl ? manualPostTextEl.value.trim() : '';
-            const isPublic = document.getElementById('manual-post-public').checked;
+            const isPublic = true;
 
-            const dt = document.getElementById('manual-date').value;
             let createdAtIso = null;
-            if (dt) {
-                const [y, m, d] = dt.split('-').map(Number);
-                const localMidnight = new Date(y, m - 1, d, 0, 0, 0);
-                createdAtIso = localMidnight.toISOString();
+            if (this.manualAddMode === 'stop') {
+                createdAtIso = this.currentStopwatchRecordedAtIso || new Date().toISOString();
+            } else {
+                const dt = document.getElementById('manual-date').value;
+                if (dt) {
+                    const [y, m, d] = dt.split('-').map(Number);
+                    const localMidnight = new Date(y, m - 1, d, 0, 0, 0);
+                    createdAtIso = localMidnight.toISOString();
+                }
             }
 
             const ok = await this.dataManager.addRecord(category, totalMinutes, text, isPublic, createdAtIso);
             if (!ok) return null;
 
             this.lastRecordCategory = category;
-            this.pendingViewAfterNa = (isPublic && text) ? 'community' : null;
+            this.switchView('dashboard');
             await this.updateDashboard({ refreshCategories: false, refreshGoals: false });
             return { category };
         };
@@ -1002,10 +1064,6 @@ class App {
                 refreshManualNaSaveEnabled();
 
                 this.hideManualAddModal();
-                if (this.pendingViewAfterNa) {
-                    this.switchView(this.pendingViewAfterNa);
-                    this.pendingViewAfterNa = null;
-                }
                 this.pendingViewAfterNa = null;
             });
         }
@@ -1032,10 +1090,8 @@ class App {
                 refreshManualNaSaveEnabled();
 
                 this.hideManualAddModal();
-                if (this.pendingViewAfterNa) {
-                    this.switchView(this.pendingViewAfterNa);
-                    this.pendingViewAfterNa = null;
-                }
+                this.switchView('dashboard');
+                this.pendingViewAfterNa = null;
             });
         }
 
@@ -1075,6 +1131,15 @@ class App {
                 } else {
                     this.switchView(view);
                 }
+            });
+        });
+
+        document.querySelectorAll('#schedule-view .tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('#schedule-view .tab-btn').forEach(t => t.classList.remove('active'));
+                btn.classList.add('active');
+                const tab = btn.dataset.tab;
+                this.updateSchedule(tab);
             });
         });
 
@@ -1201,8 +1266,27 @@ class App {
                 const isActive = goalEditApplyFlag ? goalEditApplyFlag.checked : true;
                 if (!categoryInput) return;
 
+                const weeklyTotal = weekdayMinutes * 5 + weekendMinutes * 2;
+                if (weeklyTotal < 60) {
+                    alert('週の最低目標時間は1時間です。');
+                    return;
+                }
+
                 const isNew = !this.currentGoalEditCategory;
                 const targetCategory = isNew ? categoryInput : this.currentGoalEditCategory;
+
+                if (!isActive) {
+                    const existingNa = await this.dataManager.getNextActionByCategory(targetCategory);
+                    if (existingNa) {
+                        const ok = window.confirm('やることが設定されていますが処理を続けても良いですか？（続けた場合やることは削除されます）');
+                        if (!ok) return;
+                        const deleted = await this.dataManager.deleteNextActionsByCategory(targetCategory);
+                        if (!deleted) {
+                            alert('やることの削除に失敗しました。');
+                            return;
+                        }
+                    }
+                }
 
                 if (isNew && this.dataManager.goals?.[targetCategory]) {
                     const ok = window.confirm('このカテゴリの目標は既に登録されています。上書きしますか？');
@@ -1457,6 +1541,16 @@ class App {
                 }
 
                 if (action === 'delete') {
+                    const existingNa = await this.dataManager.getNextActionByCategory(category);
+                    if (existingNa) {
+                        const ok = window.confirm('やることが設定されていますが処理を続けても良いですか？（続けた場合やることは削除されます）');
+                        if (!ok) return;
+                        const deleted = await this.dataManager.deleteNextActionsByCategory(category);
+                        if (!deleted) {
+                            alert('やることの削除に失敗しました。');
+                            return;
+                        }
+                    }
                     const ok = window.confirm('このカテゴリを削除します。記録や投稿は削除されません。よろしいですか？');
                     if (!ok) return;
                     const goalDeleted = await this.dataManager.deleteGoal(category);
@@ -1506,6 +1600,9 @@ class App {
         } else if (viewName === 'community') {
             await this.updateCommunity('recommended');
             this.startActiveUsersPolling();
+        } else if (viewName === 'schedule') {
+            await this.updateSchedule('recommended');
+            this.stopActiveUsersPolling();
         } else {
             this.stopActiveUsersPolling();
         }
@@ -1600,7 +1697,11 @@ class App {
     }
 
     async showCategoryModal(minutes, memoText = '') {
-        document.getElementById('recorded-time').textContent = this.formatDuration(minutes);
+        const recordedTimeEl = document.getElementById('recorded-time');
+        if (recordedTimeEl) {
+            recordedTimeEl.textContent = this.formatDuration(minutes);
+            recordedTimeEl.dataset.minutes = String(minutes);
+        }
         await this.updateCategorySelect();
         const categorySelect = document.getElementById('category-select');
         const homeCategorySelect = document.getElementById('home-category-select');
@@ -1612,8 +1713,9 @@ class App {
         }
         document.getElementById('post-text').value = memoText || '';
         document.getElementById('stop-na-title').value = '';
-        document.getElementById('stop-na-datetime').value = '';
-        document.getElementById('post-public').checked = true;
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        document.getElementById('stop-na-datetime').value = this.toDateInputValue(tomorrow);
         document.getElementById('save-record-btn').disabled = !categorySelect?.value;
         document.getElementById('category-modal').classList.remove('hidden');
         }
@@ -1629,11 +1731,33 @@ class App {
         return `${yyyy}-${mm}-${dd}`;
     } 
 
-    async showManualAddModal() {
-        document.getElementById('manual-hours').value = 0;
-        document.getElementById('manual-minutes').value = 0;
+    async showManualAddModal(mode = 'manual', minutes = 0, memoText = '') {
+        this.manualAddMode = mode;
+        this.manualStopMinutes = mode === 'stop' ? Number(minutes) || 0 : 0;
 
-        document.getElementById('manual-date').value = this.toDateValue(new Date());
+        const manualRecordedBlock = document.getElementById('manual-recorded-time-block');
+        const manualRecordedTime = document.getElementById('manual-recorded-time');
+        const manualDateTimeBlock = document.getElementById('manual-date-time-block');
+        const manualDateTimeLabel = document.getElementById('manual-date-time-label');
+
+        if (manualRecordedBlock) {
+            manualRecordedBlock.classList.toggle('hidden', mode !== 'stop');
+        }
+        if (manualRecordedTime) {
+            manualRecordedTime.textContent = this.formatDuration(this.manualStopMinutes);
+        }
+        if (manualDateTimeBlock) {
+            manualDateTimeBlock.classList.toggle('hidden', mode === 'stop');
+        }
+        if (manualDateTimeLabel) {
+            manualDateTimeLabel.classList.toggle('hidden', mode === 'stop');
+        }
+
+        if (mode === 'manual') {
+            document.getElementById('manual-hours').value = 0;
+            document.getElementById('manual-minutes').value = 0;
+            document.getElementById('manual-date').value = this.toDateValue(new Date());
+        }
         await this.updateManualCategorySelect();
         const manualCategorySelect = document.getElementById('manual-category-select');
         const homeCategorySelect = document.getElementById('home-category-select');
@@ -1643,16 +1767,25 @@ class App {
         } else {
             manualCategorySelect.value = '';
         }
-        document.getElementById('manual-post-public').checked = true;
         const manualNaDateEl = document.getElementById('manual-na-datetime');
         const manualNaSaveBtn = document.getElementById('manual-na-save-btn');
         const manualNaSkipBtn = document.getElementById('manual-na-skip-btn');
         const manualPostTextEl = document.getElementById('manual-post-text');
         const manualNaTitleEl = document.getElementById('manual-na-title');
-        if (manualPostTextEl) manualPostTextEl.value = '';
+        if (manualPostTextEl) manualPostTextEl.value = mode === 'stop' ? memoText : '';
         if (manualNaTitleEl) manualNaTitleEl.value = '';
-        if (manualNaDateEl) manualNaDateEl.value = '';
-        if (manualNaSaveBtn) manualNaSaveBtn.disabled = true;
+        if (manualNaDateEl) {
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            manualNaDateEl.value = this.toDateInputValue(tomorrow);
+        }
+        if (manualNaSaveBtn) {
+            const category = manualCategorySelect ? manualCategorySelect.value : '';
+            const totalMinutes = mode === 'stop'
+                ? (Number(this.manualStopMinutes) || 0)
+                : ((parseInt(document.getElementById('manual-hours')?.value, 10) || 0) * 60 + (parseInt(document.getElementById('manual-minutes')?.value, 10) || 0));
+            manualNaSaveBtn.disabled = !(category && totalMinutes > 0);
+        }
         if (manualNaSkipBtn) manualNaSkipBtn.disabled = false;
         document.getElementById('manual-add-modal').classList.remove('hidden');
     }
@@ -1970,7 +2103,7 @@ class App {
             } else if (todayRate >= 91 && todayRate <= 99) {
                 message = 'あと一歩…！';
             } else if (todayRate >= 100) {
-                message = '達成おめでとう！明日も頑張ろうね！';
+                message = '達成おめでとう！すごい！明日も頑張ろうね！';
             }
             todayMessageEl.textContent = message;
         }
@@ -2041,6 +2174,15 @@ class App {
         return `${m}/${day}`;
     }
 
+    formatScheduleDateLabel(iso) {
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return '日付未設定';
+        const m = d.getMonth() + 1;
+        const day = d.getDate();
+        const dow = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()];
+        return `${m}/${day}(${dow})`;
+    }
+
     escapeHtml(str) {
         return String(str)
             .replaceAll('&', '&amp;')
@@ -2088,6 +2230,101 @@ class App {
         if (!modal) return;
         modal.classList.add('hidden');
         this.currentNaCategory = null;
+    }
+
+    async updateSchedule(tab = 'recommended') {
+        const container = document.getElementById('schedule-container');
+        if (!container) return;
+
+        this.toggleBlockLoader('schedule-loader', true);
+        try {
+            if (!this.dataManager.goals) {
+                this.dataManager.goals = await this.dataManager.getGoals();
+            }
+            const actions = tab === 'following'
+                ? await this.dataManager.getFollowingNextActionsWithProfiles()
+                : await this.dataManager.getAllNextActionsWithProfiles();
+            const currentUserId = this.dataManager.currentUser?.id;
+            const goals = this.dataManager.goals || {};
+            const filtered = actions.filter(action => {
+                if (action.user_id !== currentUserId) return true;
+                const goal = goals[action.category];
+                return goal?.isActive !== false;
+            });
+            if (!filtered.length) {
+                container.innerHTML = '<p style="text-align: center; color: #999; padding: 40px;">予定がありません</p>';
+                return;
+            }
+
+            const sorted = filtered.slice().sort((a, b) => {
+                const aTime = a.scheduled_at ? new Date(a.scheduled_at).getTime() : Number.MAX_SAFE_INTEGER;
+                const bTime = b.scheduled_at ? new Date(b.scheduled_at).getTime() : Number.MAX_SAFE_INTEGER;
+                if (aTime !== bTime) return aTime - bTime;
+                const aCreated = new Date(a.created_at || 0).getTime();
+                const bCreated = new Date(b.created_at || 0).getTime();
+                return aCreated - bCreated;
+            });
+
+            const groups = new Map();
+            sorted.forEach(action => {
+                const key = action.scheduled_at ? this.formatScheduleDateLabel(action.scheduled_at) : '日付未設定';
+                if (!groups.has(key)) groups.set(key, new Map());
+                const userId = action.user_id || action.profiles?.id || 'unknown';
+                if (!groups.get(key).has(userId)) {
+                    const displayName = action.profiles?.nickname || action.profiles?.username || '名無し';
+                    groups.get(key).set(userId, {
+                        name: displayName,
+                        avatarUrl: action.profiles?.avatar_url || '',
+                        initial: String(displayName || '').trim().slice(0, 1) || '🙂',
+                        actions: []
+                    });
+                }
+                groups.get(key).get(userId).actions.push(action);
+            });
+
+            container.innerHTML = '';
+            for (const [label, userMap] of groups.entries()) {
+                const groupEl = document.createElement('div');
+                groupEl.className = 'schedule-group';
+
+                const userBlocks = [];
+                userMap.forEach((value) => {
+                    const actionsHtml = value.actions.map(item => `
+                        <div class="schedule-item">
+                            <div class="schedule-category">${this.escapeHtml(item.category || '')}</div>
+                            <div class="schedule-title">${this.escapeHtml(item.title || '')}</div>
+                        </div>
+                    `).join('');
+                    userBlocks.push(`
+                        <div class="schedule-user-block">
+                            <div class="schedule-user">
+                                <div class="schedule-avatar" data-avatar="${this.escapeHtml(value.avatarUrl)}">
+                                    <span>${this.escapeHtml(value.initial)}</span>
+                                </div>
+                                <div class="schedule-user-name">${this.escapeHtml(value.name)}</div>
+                            </div>
+                            <div class="schedule-items">${actionsHtml}</div>
+                        </div>
+                    `);
+                });
+
+                groupEl.innerHTML = `
+                    <div class="schedule-date">${label}</div>
+                    <div class="schedule-users">${userBlocks.join('')}</div>
+                `;
+
+                container.appendChild(groupEl);
+            }
+
+            container.querySelectorAll('.schedule-avatar').forEach(avatar => {
+                const url = avatar.getAttribute('data-avatar') || '';
+                if (!url) return;
+                avatar.style.backgroundImage = `url("${url}")`;
+                avatar.classList.add('has-image');
+            });
+        } finally {
+            this.toggleBlockLoader('schedule-loader', false);
+        }
     }
 
     sortCategoriesByGoalFlag(categories = []) {
@@ -2646,18 +2883,20 @@ class App {
                     <div class="user-avatar"></div>
                     <div class="user-info">
                         <div class="user-name">${post.userName}</div>
-                        <div class="post-time">${timeText}</div>
                     </div>
                 </div>
-                ${post.isMyPost ? `
-                    <div class="post-menu">
-                        <button class="post-menu-btn" aria-label="投稿メニュー">⋯</button>
-                        <div class="post-menu-dropdown hidden">
-                            <button class="post-menu-item" data-action="edit">編集</button>
-                            <button class="post-menu-item danger" data-action="delete">削除</button>
+                <div class="post-header-right">
+                    <div class="post-date">${timeText}</div>
+                    ${post.isMyPost ? `
+                        <div class="post-menu">
+                            <button class="post-menu-btn" aria-label="投稿メニュー">⋯</button>
+                            <div class="post-menu-dropdown hidden">
+                                <button class="post-menu-item" data-action="edit">編集</button>
+                                <button class="post-menu-item danger" data-action="delete">削除</button>
+                            </div>
                         </div>
-                    </div>
-                ` : ''}
+                    ` : ''}
+                </div>
             </div>
             <div class="post-content">
                 <div class="post-meta-line">

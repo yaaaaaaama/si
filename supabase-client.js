@@ -81,6 +81,17 @@ const SupabaseDB = {
     return data;
   },
 
+  async getProfilesByIds(userIds = []) {
+    if (!userIds.length) return [];
+    const { data, error } = await supabaseClient
+      .from('profiles')
+      .select('id, nickname, username, avatar_url')
+      .in('id', userIds);
+
+    if (error) throw error;
+    return data || [];
+  },
+
   async updateProfileAvatarUrl(avatarUrl) {
     const user = await SupabaseAuth.getCurrentUser();
     const { data, error } = await supabaseClient
@@ -645,6 +656,19 @@ const SupabaseDB = {
     return data; // ない場合は null
   },
 
+  async deleteNextActionsByCategory(category) {
+    const user = await SupabaseAuth.getCurrentUser();
+
+    const { error } = await supabaseClient
+      .from('next_actions')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('category', category);
+
+    if (error) throw error;
+    return true;
+  },
+
   // 次のやること（NA）取得（未完了）
   async getMyNextActions(limit = 3) {
     const user = await SupabaseAuth.getCurrentUser();
@@ -674,6 +698,55 @@ const SupabaseDB = {
 
     if (error) throw error;
     return data || [];
+  },
+
+  async getAllNextActionsWithProfiles() {
+    const { data: actions, error } = await supabaseClient
+      .from('next_actions')
+      .select('*')
+      .eq('done', false)
+      .order('scheduled_at', { ascending: true, nullsFirst: false })
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    const userIds = (actions || []).map(a => a.user_id).filter(Boolean);
+    const profiles = await this.getProfilesByIds([...new Set(userIds)]);
+    const profileMap = new Map(profiles.map(p => [p.id, p]));
+    return (actions || []).map(action => ({
+      ...action,
+      profiles: profileMap.get(action.user_id) || null
+    }));
+  },
+
+  async getFollowingNextActionsWithProfiles() {
+    const user = await SupabaseAuth.getCurrentUser();
+
+    const { data: follows, error: followsError } = await supabaseClient
+      .from('follows')
+      .select('following_id')
+      .eq('follower_id', user.id);
+
+    if (followsError) throw followsError;
+    if (!follows || follows.length === 0) return [];
+
+    const followingIds = follows.map(f => f.following_id);
+
+    const { data: actions, error } = await supabaseClient
+      .from('next_actions')
+      .select('*')
+      .in('user_id', followingIds)
+      .eq('done', false)
+      .order('scheduled_at', { ascending: true, nullsFirst: false })
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    const userIds = (actions || []).map(a => a.user_id).filter(Boolean);
+    const profiles = await this.getProfilesByIds([...new Set(userIds)]);
+    const profileMap = new Map(profiles.map(p => [p.id, p]));
+    return (actions || []).map(action => ({
+      ...action,
+      profiles: profileMap.get(action.user_id) || null
+    }));
   },
 
   // ユーザーステータス管理

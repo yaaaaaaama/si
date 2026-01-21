@@ -1668,6 +1668,17 @@ body {
     margin-bottom: 12px;
 }
 
+.post-header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.post-date {
+    font-size: 12px;
+    color: #999;
+}
+
 .post-menu {
     position: relative;
 }
@@ -1689,6 +1700,124 @@ body {
 
 .post-menu-btn:hover {
     background: #e6e6e6;
+}
+
+.na-date-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.na-date-row input[type="date"] {
+    flex: 1;
+}
+
+.na-date-btn {
+    padding: 10px 16px;
+    white-space: nowrap;
+}
+
+.schedule-tabs {
+    margin-bottom: 12px;
+}
+
+#schedule-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.schedule-group {
+    background: #fff;
+    border-radius: 15px;
+    padding: 16px 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+}
+
+.schedule-date {
+    font-weight: 700;
+    color: #333;
+    margin-bottom: 12px;
+}
+
+.schedule-items {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.schedule-users {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.schedule-user-block {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.schedule-user-name {
+    font-weight: 700;
+    color: #333;
+}
+
+.schedule-user {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.schedule-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: #e6e6e6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    color: #666;
+    background-size: cover;
+    background-position: center;
+}
+
+.schedule-avatar.has-image span {
+    display: none;
+}
+
+.schedule-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #f6f6f6;
+}
+
+.manual-recorded-time {
+    margin-bottom: 16px;
+    font-size: 18px;
+    font-weight: 700;
+    color: #333;
+}
+
+.schedule-category {
+    font-size: 12px;
+    color: #666;
+    background: #ededed;
+    padding: 4px 10px;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+.schedule-title {
+    font-weight: 600;
+    color: #333;
+    margin-left: 12px;
+    flex: 1;
+    text-align: left;
 }
 
 .post-menu-dropdown {

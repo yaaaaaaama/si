@@ -98,7 +98,7 @@
                         <button id="start-btn" class="control-btn start-btn">開始</button>
                         <button id="stop-btn" class="control-btn stop-btn" disabled>停止</button>
                     </div>
-                    <button id="manual-add-btn" class="manual-add-btn">+ 手動で記録を追加</button>
+                    <button id="manual-add-btn" class="manual-add-btn">手動追加</button>
                 </div>
                 <div class="na-section">
                     <div class="section-header">
@@ -143,6 +143,20 @@
                     <div class="block-spinner"></div>
                 </div>
                 <div id="posts-container"></div>
+            </div>
+        </div>
+
+        <!-- 予定画面 -->
+        <div id="schedule-view" class="view">
+            <div class="container">
+                <div class="community-tabs schedule-tabs">
+                    <button class="tab-btn active" data-tab="recommended">おすすめ</button>
+                    <button class="tab-btn" data-tab="following">フォロー中</button>
+                </div>
+                <div class="block-loader hidden" id="schedule-loader">
+                    <div class="block-spinner"></div>
+                </div>
+                <div id="schedule-container"></div>
             </div>
         </div>
 
@@ -237,13 +251,16 @@
         <!-- ボトムナビゲーション -->
         <nav class="bottom-nav">
             <button class="nav-btn active" data-view="home">
-                <span class="nav-label">ホーム</span>
+                <span class="nav-label">記録</span>
             </button>
             <button class="nav-btn" data-view="community">
-                <span class="nav-label">コミュニティ</span>
+                <span class="nav-label">実績</span>
+            </button>
+            <button class="nav-btn" data-view="schedule">
+                <span class="nav-label">予定</span>
             </button>
             <button class="nav-btn" data-view="dashboard">
-                <span class="nav-label">マイページ</span>
+                <span class="nav-label">管理</span>
             </button>
         </nav>
     </div>
@@ -264,12 +281,9 @@
             <h4>やること</h4>
             <textarea id="stop-na-title" placeholder="例）〇〇資料の作成、〇〇の本を読んだ、シャドーイング" maxlength="100"></textarea>
             <h4>いつやる</h4>
-            <input type="date" id="stop-na-datetime">
-            <div class="post-options">
-                <label>
-                    <input type="checkbox" id="post-public" checked>
-                    <span>コミュニティに投稿する</span>
-                </label>
+            <div class="na-date-row">
+                <input type="date" id="stop-na-datetime">
+                <button id="stop-na-today-btn" class="secondary-btn na-date-btn" type="button">今日</button>
             </div>
             <div class="modal-actions">
                 <button id="cancel-record-btn" class="secondary-btn" type="button">キャンセル</button>
@@ -299,8 +313,11 @@
     <div id="manual-add-modal" class="modal hidden">
         <div class="modal-content">
             <h3>計測を手動追加</h3>
-            <h4>作業日 / 作業時間</h4>
-            <div class="manual-date-time">
+            <h3 id="manual-recorded-time-block" class="manual-recorded-time hidden">
+                計測時間: <span id="manual-recorded-time">0分</span>
+            </h3>
+            <h4 id="manual-date-time-label">作業日 / 作業時間</h4>
+            <div class="manual-date-time" id="manual-date-time-block">
                 <div class="manual-date-block">
                     <span class="manual-field-label">日付</span>
                     <input type="date" id="manual-date">
@@ -366,13 +383,9 @@
                 <textarea id="manual-na-title" placeholder="例）〇〇資料の作成 / リスニング / 〇〇を読んだ" maxlength="100"></textarea>
 
                 <h4>いつやる</h4>
-                <input type="date" id="manual-na-datetime">
-
-                <div class="post-options">
-                    <label>
-                        <input type="checkbox" id="manual-post-public" checked>
-                        <span>コミュニティに投稿する</span>
-                    </label>
+                <div class="na-date-row">
+                    <input type="date" id="manual-na-datetime">
+                    <button id="manual-na-today-btn" class="secondary-btn na-date-btn" type="button">今日</button>
                 </div>
                 <div class="modal-actions">
                     <button id="manual-na-skip-btn" class="secondary-btn">キャンセル</button>
