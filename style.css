@@ -46,6 +46,28 @@ body {
     padding-bottom: 80px;
 }
 
+.view > .container {
+    position: relative;
+}
+
+.has-top-label {
+    padding-top: 44px;
+}
+
+.view-top-label {
+    position: absolute;
+    left: 20px;
+    top: 10px;
+    font-size: 16px;
+    font-weight: 700;
+    color: #111;
+    pointer-events: none;
+}
+
+#dashboard-view .view-top-label {
+    left: 20px;
+}
+
 /* ログイン画面 */
 #login-screen {
     display: flex;
@@ -299,6 +321,12 @@ body {
     font-family: 'Courier New', monospace;
 }
 
+.measure-view .stopwatch-display {
+    text-align: center;
+    width: 100%;
+    display: block;
+}
+
 .stopwatch-controls {
     display: flex;
     gap: 15px;
@@ -311,7 +339,7 @@ body {
   min-height: 64px;
   padding: 12px;
   border: 1px solid #ddd;
-  border-radius: 12px;
+  border-radius: 0;
   font-size: 14px;
   resize: vertical;
   margin-bottom: 16px;
@@ -457,46 +485,288 @@ body {
   border-radius: 10px;
 }
 
+/* 記録画面 */
+.record-view {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.record-goals-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.record-goal-card {
+  background: #fff;
+  padding: 16px;
+  border-bottom: 1px solid #e9e9e9;
+  cursor: pointer;
+}
+
+.record-goal-card:last-child {
+  border-bottom: none;
+}
+
+.record-goal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.record-goal-head-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.record-goal-title {
+  font-weight: 700;
+  color: #333;
+}
+
+.record-goal-date {
+  font-size: 12px;
+  color: #999;
+}
+
+.record-goal-edit-btn {
+  border: none;
+  background: #f3f3f3;
+  color: #333;
+  font-size: 12px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.record-goal-edit-btn:hover {
+  background: #e6e6e6;
+}
+
+.record-goal-todo {
+  margin-top: 8px;
+  font-size: 14px;
+  color: #333;
+}
+
+.record-goal-actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+}
+
+.record-goal-action-btn {
+  border: none;
+  background: #f3f3f3;
+  color: #333;
+  font-size: 12px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.record-goal-action-btn:hover {
+  background: #e6e6e6;
+}
+
+.record-goal-edit-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.record-goal-add-btn {
+  width: 100%;
+  padding: 14px 16px;
+  border: none;
+  background: #fff;
+  border-top: 1px solid #e9e9e9;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.record-goal-add-btn:hover {
+  background: #f7f7f7;
+}
+
+.measure-view {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.measure-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.measure-goal-title {
+  font-weight: 700;
+  color: #333;
+}
+
+.measure-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid #e9e9e9;
+  margin-bottom: 12px;
+}
+
+.measure-tab {
+  flex: 1;
+  padding: 12px 4px 14px;
+  border: none;
+  background: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  color: #6b7280;
+  position: relative;
+}
+
+.measure-tab.active {
+  color: #111;
+}
+
+.measure-tab.active::after {
+  content: '';
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  bottom: 0;
+  height: 3px;
+  background: #1d9bf0;
+}
+
+.measure-panel {
+  display: none;
+}
+
+.measure-panel.active {
+  display: block;
+}
+
+.timer-time-select {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.timer-time-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.timer-time-block select {
+  width: 100%;
+  padding: 8px;
+  border: 2px solid #e0e0e0;
+  border-radius: 0;
+  font-size: 16px;
+}
+
+.timer-display {
+  text-align: center;
+  font-size: 32px;
+  font-weight: 700;
+  margin: 8px 0 12px;
+}
+
 /* ユーザーページ */
 .user-profile {
     background: white;
-    border-radius: 15px;
-    padding: 30px 20px;
+    border-radius: 0;
+    padding: 20px 18px;
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    margin-bottom: 20px;
-    text-align: center;
+    margin-bottom: 0;
+    text-align: left;
+}
+
+.user-profile-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.user-profile-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.user-profile-actions .primary-btn {
+    padding: 8px 14px;
+    border-radius: 12px;
+    font-size: 14px;
+}
+
+.user-profile-actions {
+    margin-left: auto;
 }
 
 .user-avatar-large {
-    width: 80px;
-    height: 80px;
+    width: 72px;
+    height: 72px;
     border-radius: 50%;
     background: #e5e5e5;
     border: 3px solid #ccc;
-    margin: 0 auto 15px;
 }
 
 .user-info-large h2 {
     font-size: 24px;
-    margin-bottom: 5px;
+    margin-bottom: 4px;
 }
 
 .user-info-large p {
     color: #666;
     font-size: 14px;
-    margin-bottom: 20px;
+    margin-bottom: 0;
+}
+
+.user-profile-meta {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid #efefef;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.profile-meta-item {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+}
+
+.profile-meta-label {
+    min-width: 64px;
+    font-size: 12px;
+    color: #999;
+}
+
+.profile-meta-value {
+    font-size: 14px;
+    color: #333;
+    word-break: break-word;
 }
 
 #user-records-container {
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 0;
 }
 
 .record-card {
     background: white;
-    border-radius: 15px;
-    padding: 20px;
+    border-radius: 0;
+    padding: 16px;
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
 }
 
@@ -504,7 +774,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 12px;
+    margin-bottom: 8px;
 }
 
 .record-date {
@@ -558,18 +828,68 @@ body {
 .dashboard-topbar {
   display: flex;
   justify-content: flex-end;
-  margin-bottom: 12px;
+  margin-bottom: 0;
+}
+
+.dashboard-menu {
+  position: relative;
+}
+
+.dashboard-menu-btn {
+  border: none;
+  background: #f3f3f3;
+  color: #333;
+  font-size: 20px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dashboard-menu-btn:hover {
+  background: #e6e6e6;
+}
+
+.dashboard-menu-dropdown {
+  position: absolute;
+  right: 0;
+  top: 42px;
+  background: white;
+  border-radius: 0;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+  padding: 6px;
+  min-width: 120px;
+  z-index: 5;
+}
+
+.dashboard-menu-item {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 8px 10px;
+  text-align: left;
+  cursor: pointer;
+  font-size: 14px;
+  color: #333;
+}
+
+.dashboard-menu-item:hover {
+  background: #f2f2f2;
 }
 
 .dashboard-header {
     background: white;
-    border-radius: 15px;
+    border-radius: 0;
     padding: 25px;
     display: grid;
     grid-template-columns: 1fr 1fr;
     align-items: center;
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    margin-bottom: 20px;
+    margin-bottom: 0;
 }
 
 .dashboard-avatar {
@@ -726,18 +1046,18 @@ body {
 /* 目標セクション */
 .goal-section {
     background: white;
-    border-radius: 15px;
-    padding: 20px;
+    border-radius: 0;
+    padding: 16px;
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    margin-bottom: 20px;
+    margin-bottom: 0;
 }
 
 .goal-register-section {
     background: white;
-    border-radius: 15px;
-    padding: 20px;
+    border-radius: 0;
+    padding: 16px;
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    margin-bottom: 20px;
+    margin-bottom: 0;
 }
 
 .goal-register-form {
@@ -938,7 +1258,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 15px;
+    margin-bottom: 10px;
 }
 
 .icon-btn {
@@ -950,7 +1270,7 @@ body {
 }
 
 .progress-item {
-    margin-bottom: 20px;
+    margin-bottom: 0;
 }
 
 .progress-header {
@@ -1000,16 +1320,16 @@ body {
 /* グラフセクション */
 .chart-section {
     background: white;
-    border-radius: 15px;
-    padding: 20px;
+    border-radius: 0;
+    padding: 16px;
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    margin-bottom: 20px;
+    margin-bottom: 0;
 }
 
 .chart-layout {
     display: grid;
     grid-template-columns: 1fr 2fr;
-    gap: 20px;
+    gap: 14px;
     align-items: center;
 }
 
@@ -1020,7 +1340,7 @@ body {
 .week-total-panel h3 {
     font-size: 16px;
     color: #666;
-    margin-bottom: 10px;
+    margin-bottom: 6px;
 }
 
 .chart-panel {
@@ -1032,7 +1352,7 @@ body {
     justify-content: space-between;
     align-items: baseline;
     gap: 10px;
-    margin-bottom: 10px;
+    margin-bottom: 6px;
 }
 
 .chart-legend {
@@ -1106,7 +1426,7 @@ body {
 .view-header {
     display: flex;
     align-items: center;
-    margin-bottom: 20px;
+    margin-bottom: 0;
 }
 
 .back-btn {
@@ -1120,10 +1440,10 @@ body {
 
 #goal-form {
     background: white;
-    border-radius: 15px;
-    padding: 20px;
+    border-radius: 0;
+    padding: 16px;
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    margin-bottom: 20px;
+    margin-bottom: 0;
 }
 
 .goal-item {
@@ -1456,6 +1776,10 @@ body {
 .manual-date-block input,
 .manual-time-block select {
     width: 100%;
+    padding: 8px;
+    border: 2px solid #e0e0e0;
+    border-radius: 0;
+    font-size: 16px;
 }
 
 .manual-na-section {
@@ -1585,9 +1909,9 @@ body {
 .active-users-banner {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
-    padding: 12px 20px;
-    border-radius: 10px;
-    margin-bottom: 15px;
+    padding: 10px 16px;
+    border-radius: 0;
+    margin-bottom: 0;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -1610,38 +1934,53 @@ body {
     }
 }
 
-.community-tabs {
+.community-tabs,
+.schedule-tabs {
     display: flex;
-    gap: 10px;
-    margin-bottom: 20px;
-    background: white;
-    border-radius: 10px;
-    padding: 5px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    gap: 0;
+    margin-bottom: 0;
+    background: #fff;
+    border-radius: 0;
+    padding: 0;
+    border: none;
+    box-shadow: none;
 }
 
 .tab-btn {
     flex: 1;
-    padding: 12px;
+    padding: 12px 4px 14px;
     border: none;
-    background: transparent;
-    border-radius: 8px;
+    background: #fff;
+    border-radius: 0;
     cursor: pointer;
     font-size: 16px;
-    font-weight: 500;
-    transition: all 0.3s;
+    font-weight: 700;
+    transition: color 0.2s ease;
+    color: #6b7280;
+    position: relative;
 }
 
 .tab-btn.active {
-    background: #333;
-    color: white;
+    background: transparent;
+    color: #111;
+}
+
+.tab-btn.active::after {
+    content: '';
+    position: absolute;
+    left: 12%;
+    right: 12%;
+    bottom: 0;
+    height: 3px;
+    background: #1d9bf0;
+    border-radius: 999px;
 }
 
 /* 投稿カード */
 #posts-container {
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 0;
 }
 
 #community-view .container {
@@ -1650,22 +1989,27 @@ body {
 
 #posts-loader {
     position: static;
-    margin: 12px 0;
+    margin: 0;
     height: 24px;
 }
 
 .post-card {
     background: white;
-    border-radius: 15px;
-    padding: 20px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    border-radius: 0;
+    padding: 16px;
+    box-shadow: none;
+    border-bottom: 1px solid #e9e9e9;
+}
+
+.post-card:last-child {
+    border-bottom: none;
 }
 
 .post-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 12px;
+    margin-bottom: 8px;
 }
 
 .post-header-right {
@@ -1718,44 +2062,44 @@ body {
 }
 
 .schedule-tabs {
-    margin-bottom: 12px;
+    margin-bottom: 0;
 }
 
 #schedule-container {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 0;
 }
 
 .schedule-group {
     background: #fff;
-    border-radius: 15px;
-    padding: 16px 20px;
+    border-radius: 0;
+    padding: 12px 16px;
     box-shadow: 0 2px 10px rgba(0,0,0,0.08);
 }
 
 .schedule-date {
     font-weight: 700;
     color: #333;
-    margin-bottom: 12px;
+    margin-bottom: 8px;
 }
 
 .schedule-items {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
 }
 
 .schedule-users {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 10px;
 }
 
 .schedule-user-block {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
 }
 
 .schedule-user-name {
@@ -1791,13 +2135,13 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 10px 12px;
-    border-radius: 10px;
+    padding: 8px 10px;
+    border-radius: 0;
     background: #f6f6f6;
 }
 
 .manual-recorded-time {
-    margin-bottom: 16px;
+    margin-bottom: 0;
     font-size: 18px;
     font-weight: 700;
     color: #333;
@@ -1890,7 +2234,7 @@ body {
 }
 
 .post-content {
-    margin-bottom: 12px;
+    margin-bottom: 8px;
 }
 
 .post-category {
@@ -1917,8 +2261,8 @@ body {
 .post-actions {
     display: flex;
     gap: 20px;
-    padding-top: 12px;
-    border-top: 1px solid #f0f0f0;
+    padding-top: 8px;
+    border-top: none;
 }
 
 .action-btn {
@@ -1949,13 +2293,15 @@ body {
 /* 投稿テキストエリア */
 #post-text,
 #manual-post-text,
+#manual-inline-text,
 #manual-na-title,
+#manual-inline-na-title,
 #stop-na-title,
 #edit-post-text {
     width: 100%;
     padding: 12px;
     border: 2px solid #e0e0e0;
-    border-radius: 10px;
+    border-radius: 0;
     font-size: 14px;
     font-family: inherit;
     resize: vertical;
@@ -1965,7 +2311,9 @@ body {
 
 #post-text:focus,
 #manual-post-text:focus,
+#manual-inline-text:focus,
 #manual-na-title:focus,
+#manual-inline-na-title:focus,
 #stop-na-title:focus,
 #edit-post-text:focus {
     outline: none;

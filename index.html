@@ -65,49 +65,108 @@
     <div id="app-screen" class="screen hidden">
         <!-- ホーム画面 -->
         <div id="home-view" class="view active">
-            <div class="container">
-                <div class="stopwatch-section">
-                    <div class="stopwatch-display" id="stopwatch">00:00:00</div>
-                    <!-- ホーム：カテゴリ選択 + やること表示 -->
-                    <div class="home-task">
-                    <div class="home-category-row">
-                        <select id="home-category-select" class="home-category-select">
-                            <option value="">カテゴリを選択</option>
-                        </select>
-                        <button id="home-goal-add-btn" class="home-goal-add-btn" type="button" aria-label="カテゴリを追加">＋</button>
-                    </div>
-
-                    <div id="home-todo-box" class="home-todo-box hidden">
-                        <div class="home-todo-head">
-                        <div class="home-todo-label">やること</div>
-                        <button id="home-use-todo-btn" class="secondary-btn home-use-todo-btn" type="button">
-                            メモに反映
-                        </button>
-                        </div>
-                        <div id="home-todo-text" class="home-todo-text"></div>
-                    </div>
-                    </div>
-                    <div class="home-memo-label">今やっていること</div>
-                    <textarea
-                    id="stopwatch-memo"
-                    class="stopwatch-memo"
-                    placeholder="例）〇〇資料の作成 / リスニング / 〇〇を読んだ"
-                    maxlength="200"
-                    ></textarea>
-                    <div class="stopwatch-controls">
-                        <button id="start-btn" class="control-btn start-btn">開始</button>
-                        <button id="stop-btn" class="control-btn stop-btn" disabled>停止</button>
-                    </div>
-                    <button id="manual-add-btn" class="manual-add-btn">手動追加</button>
+            <div class="container has-top-label">
+                <div class="view-top-label">目標を記録する</div>
+                <div id="record-view" class="record-view">
+                    <div id="record-goals-list" class="record-goals-list"></div>
+                    <button id="home-goal-add-btn" class="record-goal-add-btn" type="button">目標を登録</button>
                 </div>
-                <div class="na-section">
-                    <div class="section-header">
-                        <h3>やること</h3>
+                <div id="measure-view" class="measure-view hidden">
+                    <div class="measure-header">
+                        <button id="measure-back-btn" class="secondary-btn" type="button">戻る</button>
+                        <div id="measure-goal-title" class="measure-goal-title"></div>
                     </div>
-                    <div class="block-loader hidden" id="na-list-loader">
-                        <div class="block-spinner"></div>
+                    <div class="measure-tabs">
+                        <button class="measure-tab active" data-tab="stopwatch" type="button">ストップウォッチ</button>
+                        <button class="measure-tab" data-tab="timer" type="button">タイマー</button>
+                        <button class="measure-tab" data-tab="manual" type="button">手動</button>
                     </div>
-                    <div id="na-list"></div>
+                    <div class="measure-panel active" data-panel="stopwatch">
+                        <div class="stopwatch-display" id="stopwatch">00:00:00</div>
+                        <div id="measure-todo-box" class="home-todo-box hidden">
+                            <div class="home-todo-head">
+                                <div class="home-todo-label">やること</div>
+                                <button id="measure-use-todo-btn" class="secondary-btn home-use-todo-btn" type="button">
+                                    メモに反映
+                                </button>
+                            </div>
+                            <div id="measure-todo-text" class="home-todo-text"></div>
+                        </div>
+                        <div class="home-memo-label">今やっていること</div>
+                        <textarea
+                        id="stopwatch-memo"
+                        class="stopwatch-memo"
+                        placeholder="例）〇〇資料の作成 / リスニング / 〇〇を読んだ"
+                        maxlength="200"
+                        ></textarea>
+                        <div class="stopwatch-controls">
+                            <button id="start-btn" class="control-btn start-btn">開始</button>
+                            <button id="stop-btn" class="control-btn stop-btn" disabled>停止</button>
+                        </div>
+                    </div>
+                    <div class="measure-panel" data-panel="timer">
+                        <div class="timer-time-select">
+                            <div class="timer-time-block">
+                                <span class="manual-field-label">時間</span>
+                                <select id="timer-hours"></select>
+                            </div>
+                            <div class="timer-time-block">
+                                <span class="manual-field-label">分</span>
+                                <select id="timer-minutes"></select>
+                            </div>
+                        </div>
+                        <div id="timer-display" class="timer-display">00:00</div>
+                        <div class="stopwatch-controls">
+                            <button id="timer-start-btn" class="control-btn start-btn" type="button">開始</button>
+                            <button id="timer-stop-btn" class="control-btn stop-btn" type="button" disabled>停止</button>
+                        </div>
+                        <div id="timer-todo-box" class="home-todo-box hidden">
+                            <div class="home-todo-head">
+                                <div class="home-todo-label">やること</div>
+                                <button id="timer-use-todo-btn" class="secondary-btn home-use-todo-btn" type="button">
+                                    メモに反映
+                                </button>
+                            </div>
+                            <div id="timer-todo-text" class="home-todo-text"></div>
+                        </div>
+                        <div class="home-memo-label">今やっていること</div>
+                        <textarea
+                        id="timer-memo"
+                        class="stopwatch-memo"
+                        placeholder="例）〇〇資料の作成 / リスニング / 〇〇を読んだ"
+                        maxlength="200"
+                        ></textarea>
+                    </div>
+                    <div class="measure-panel" data-panel="manual">
+                        <div class="manual-date-time">
+                            <div class="manual-date-block">
+                                <span class="manual-field-label">日付</span>
+                                <input type="date" id="manual-inline-date">
+                            </div>
+                            <div class="manual-time-block">
+                                <span class="manual-field-label">時間</span>
+                                <select id="manual-inline-hours"></select>
+                            </div>
+                            <div class="manual-time-block">
+                                <span class="manual-field-label">分</span>
+                                <select id="manual-inline-minutes"></select>
+                            </div>
+                        </div>
+                        <h4>やったこと</h4>
+                        <textarea id="manual-inline-text" placeholder="例）〇〇資料の作成 / リスニング / 〇〇を読んだ" maxlength="100"></textarea>
+                        <div class="manual-inline-na">
+                            <h4>やること</h4>
+                            <textarea id="manual-inline-na-title" placeholder="例）〇〇資料の作成 / リスニング / 〇〇を読んだ" maxlength="100"></textarea>
+                            <h4>いつやる</h4>
+                            <div class="na-date-row">
+                                <input type="date" id="manual-inline-na-date">
+                                <button id="manual-inline-na-today-btn" class="secondary-btn na-date-btn" type="button">今日</button>
+                            </div>
+                            <div class="modal-actions">
+                                <button id="manual-inline-save-btn" class="primary-btn" type="button" disabled>保存</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -116,13 +175,29 @@
         <div id="user-view" class="view">
             <div class="container">
                 <div class="user-profile">
-                    <div class="user-avatar-large"></div>
-                    <div class="user-info-large">
-                        <h2 id="user-profile-name"></h2>
-                        <p id="user-profile-username"></p>
+                    <div class="user-profile-top">
+                        <div class="user-profile-left">
+                            <div class="user-avatar-large"></div>
+                            <div class="user-info-large">
+                                <h2 id="user-profile-name"></h2>
+                                <p id="user-profile-username"></p>
+                            </div>
+                        </div>
+                        <div class="user-profile-actions">
+                            <button id="follow-btn" class="primary-btn hidden">フォロー</button>
+                            <button id="following-list-btn" class="primary-btn hidden">フォロー中</button>
+                        </div>
                     </div>
-                    <button id="follow-btn" class="primary-btn hidden">フォロー</button>
-                    <button id="following-list-btn" class="primary-btn hidden">フォロー中</button>
+                    <div class="user-profile-meta">
+                        <div class="profile-meta-item">
+                            <span class="profile-meta-label">カテゴリ</span>
+                            <span id="user-profile-categories" class="profile-meta-value"></span>
+                        </div>
+                        <div class="profile-meta-item">
+                            <span class="profile-meta-label">一言</span>
+                            <span id="user-profile-bio" class="profile-meta-value"></span>
+                        </div>
+                    </div>
                 </div>
                 <div id="user-records-container"></div>
             </div>
@@ -148,7 +223,8 @@
 
         <!-- 予定画面 -->
         <div id="schedule-view" class="view">
-            <div class="container">
+            <div class="container has-top-label">
+                <div class="view-top-label">みんなの予定</div>
                 <div class="community-tabs schedule-tabs">
                     <button class="tab-btn active" data-tab="recommended">おすすめ</button>
                     <button class="tab-btn" data-tab="following">フォロー中</button>
@@ -162,9 +238,15 @@
 
         <!-- ダッシュボード画面 -->
         <div id="dashboard-view" class="view">
-            <div class="container">
+            <div class="container has-top-label">
+                <div class="view-top-label">自己管理</div>
                 <div class="dashboard-topbar">
-                    <button type="button" class="secondary-btn" data-action="logout">ログアウト</button>
+                    <div class="dashboard-menu">
+                        <button type="button" class="dashboard-menu-btn" aria-label="メニュー">⋯</button>
+                        <div class="dashboard-menu-dropdown hidden">
+                            <button type="button" class="dashboard-menu-item" data-action="logout">ログアウト</button>
+                        </div>
+                    </div>
                 </div>
                 <div class="dashboard-header">
                     <div class="dashboard-avatar">
@@ -269,8 +351,8 @@
     <div id="category-modal" class="modal hidden">
         <div class="modal-content">
             <h3>計測時間: <span id="recorded-time">0分</span></h3>
-            <h4>カテゴリを選択</h4>
-            <div class="category-select-row">
+            <h4 id="manual-category-label">カテゴリを選択</h4>
+            <div id="manual-category-row" class="category-select-row">
                 <select id="category-select">
                     <option value="">選択してください</option>
                 </select>
@@ -299,7 +381,7 @@
             <h4>やること（必須）</h4>
             <input type="text" id="na-title" placeholder="例：英語の発音練習" maxlength="50">
 
-            <h4>日付（任意）</h4>
+            <h4>日付</h4>
             <input type="date" id="na-datetime">
 
             <div class="modal-actions">
@@ -391,6 +473,20 @@
                     <button id="manual-na-skip-btn" class="secondary-btn">キャンセル</button>
                     <button id="manual-na-save-btn" class="primary-btn" disabled>保存</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 記録編集モーダル -->
+    <div id="record-goal-edit-modal" class="modal hidden">
+        <div class="modal-content">
+            <h3>編集</h3>
+            <div class="record-goal-edit-actions">
+                <button id="record-goal-edit-na-btn" class="secondary-btn" type="button">やること編集</button>
+                <button id="record-goal-edit-goal-btn" class="secondary-btn" type="button">目標編集</button>
+            </div>
+            <div class="modal-actions">
+                <button id="record-goal-edit-close-btn" class="secondary-btn" type="button">閉じる</button>
             </div>
         </div>
     </div>

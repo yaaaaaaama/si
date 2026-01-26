@@ -546,6 +546,14 @@ class App {
         this.currentStatus = 'online';
         this.manualAddMode = 'manual';
         this.manualStopMinutes = 0;
+        this.currentMeasureCategory = null;
+        this.currentMeasureTab = 'stopwatch';
+        this.timerIntervalId = null;
+        this.timerRemainingSeconds = 0;
+        this.timerTotalMinutes = 0;
+        this.timerInitialSeconds = 0;
+        this.isTimerRunning = false;
+        this.currentRecordEditCategory = null;
         this.tabId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : `tab-${Date.now()}-${Math.random().toString(16).slice(2)}`;
         
          this.weekOffset = 0;
@@ -735,53 +743,73 @@ class App {
             }
         });
 
+        const setupTimeSelectOptions = (hoursEl, minutesEl) => {
+            if (!hoursEl || !minutesEl) return;
+            hoursEl.innerHTML = '';
+            for (let h = 0; h <= 23; h++) {
+                const opt = document.createElement('option');
+                opt.value = String(h);
+                opt.textContent = String(h);
+                hoursEl.appendChild(opt);
+            }
+            minutesEl.innerHTML = '';
+            [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].forEach((m) => {
+                const opt = document.createElement('option');
+                opt.value = String(m);
+                opt.textContent = String(m).padStart(2, '0');
+                minutesEl.appendChild(opt);
+            });
+            hoursEl.value = '0';
+            minutesEl.value = '0';
+        };
+
+        setupTimeSelectOptions(
+            document.getElementById('timer-hours'),
+            document.getElementById('timer-minutes')
+        );
+        setupTimeSelectOptions(
+            document.getElementById('manual-inline-hours'),
+            document.getElementById('manual-inline-minutes')
+        );
+        const manualInlineDate = document.getElementById('manual-inline-date');
+        if (manualInlineDate) {
+            manualInlineDate.value = this.toDateValue(new Date());
+        }
+
         // ストップウォッチ
-        document.getElementById('start-btn').addEventListener('click', async () => {
-        const memoEl = document.getElementById('stopwatch-memo');
+        const startBtn = document.getElementById('start-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        if (startBtn && stopBtn) {
+            startBtn.addEventListener('click', async () => {
+            const memoEl = document.getElementById('stopwatch-memo');
 
-        if (!this.stopwatch.isRunning) {
-            this.stopwatch.start();
-            document.getElementById('start-btn').textContent = '一時停止';
-            document.getElementById('start-btn').classList.add('paused');
-            document.getElementById('stop-btn').disabled = false;
-            
-            // ステータスを「計測中」に更新
-            const selectedCategory = document.getElementById('home-category-select').value;
-            this.currentStatus = 'measuring';
-            this.updateMeasuringPresence(true);
-            await SupabaseDB.updateUserStatus('measuring', selectedCategory || null);
-            if (this.isCommunityActive()) {
-                await this.updateActiveUsersCount();
+            if (!this.stopwatch.isRunning) {
+                this.stopwatch.start();
+                startBtn.textContent = '一時停止';
+                startBtn.classList.add('paused');
+                stopBtn.disabled = false;
+                
+                // ステータスを「計測中」に更新
+                const selectedCategory = this.currentMeasureCategory;
+                this.currentStatus = 'measuring';
+                this.updateMeasuringPresence(true);
+                await SupabaseDB.updateUserStatus('measuring', selectedCategory || null);
+                if (this.isCommunityActive()) {
+                    await this.updateActiveUsersCount();
+                }
+            } else {
+                this.stopwatch.pause();
+                startBtn.textContent = '再開';
+                
+                // 一時停止時はステータスを「オンライン」に戻す
+                this.currentStatus = 'online';
+                this.updateMeasuringPresence(false);
+                await SupabaseDB.updateUserStatus('online');
+                if (this.isCommunityActive()) {
+                    await this.updateActiveUsersCount();
+                }
             }
-        } else {
-            this.stopwatch.pause();
-            document.getElementById('start-btn').textContent = '再開';
-            
-            // 一時停止時はステータスを「オンライン」に戻す
-            this.currentStatus = 'online';
-            this.updateMeasuringPresence(false);
-            await SupabaseDB.updateUserStatus('online');
-            if (this.isCommunityActive()) {
-                await this.updateActiveUsersCount();
-            }
-        }
-        });
-
-        // Home：カテゴリ選択で「やること」を表示
-        const homeCat = document.getElementById('home-category-select');
-        const useTodoBtn = document.getElementById('home-use-todo-btn');
-
-        if (homeCat) {
-          homeCat.addEventListener('change', async (e) => {
-            const category = e.target.value;
-            await this.renderHomeTodo(category);
-          });
-        }
-
-        if (useTodoBtn) {
-          useTodoBtn.addEventListener('click', () => {
-            this.applyHomeTodoToMemo();
-          });
+            });
         }
 
         const stopNaTodayBtn = document.getElementById('stop-na-today-btn');
@@ -806,35 +834,144 @@ class App {
             });
         }
 
-        document.getElementById('stop-btn').addEventListener('click', async () => {
-        const minutes = this.stopwatch.getMinutes();
-        const memoEl = document.getElementById('stopwatch-memo');
-        const memoText = memoEl ? memoEl.value.trim() : '';
+        if (stopBtn) {
+            stopBtn.addEventListener('click', async () => {
+            const minutes = this.stopwatch.getMinutes();
+            const memoEl = document.getElementById('stopwatch-memo');
+            const memoText = memoEl ? memoEl.value.trim() : '';
 
-        if (minutes > 0) {
-            this.currentStopwatchRecordedAtIso = new Date().toISOString();
-            this.showManualAddModal('stop', minutes, memoText);
+            if (minutes > 0) {
+                this.currentStopwatchRecordedAtIso = new Date().toISOString();
+                this.showManualAddModal('stop', minutes, memoText, this.currentMeasureCategory);
+            }
+
+            this.stopwatch.stop();
+            this.stopwatch.display();
+            startBtn.textContent = '開始';
+            startBtn.classList.remove('paused');
+            stopBtn.disabled = true;
+            
+            // ステータスを「オンライン」に戻す
+            this.currentStatus = 'online';
+            this.updateMeasuringPresence(false);
+            await SupabaseDB.updateUserStatus('online');
+            if (this.isCommunityActive()) {
+                await this.updateActiveUsersCount();
+            }
+            });
         }
 
-        this.stopwatch.stop();
-        this.stopwatch.display();
-        document.getElementById('start-btn').textContent = '開始';
-        document.getElementById('start-btn').classList.remove('paused');
-        document.getElementById('stop-btn').disabled = true;
-        
-        // ステータスを「オンライン」に戻す
-        this.currentStatus = 'online';
-        this.updateMeasuringPresence(false);
-        await SupabaseDB.updateUserStatus('online');
-        if (this.isCommunityActive()) {
-            await this.updateActiveUsersCount();
-        }
+        // 計測タブ切り替え
+        document.querySelectorAll('.measure-tab').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const tab = btn.dataset.tab;
+                if (!tab) return;
+                this.switchMeasureTab(tab);
+            });
         });
 
-        // 手動追加ボタン
-        document.getElementById('manual-add-btn').addEventListener('click', () => {
-            this.showManualAddModal('manual');
-        });
+        const measureBackBtn = document.getElementById('measure-back-btn');
+        if (measureBackBtn) {
+            measureBackBtn.addEventListener('click', () => {
+                this.hideMeasureView();
+            });
+        }
+
+        const recordGoalsList = document.getElementById('record-goals-list');
+        if (recordGoalsList) {
+            recordGoalsList.addEventListener('click', async (e) => {
+                const card = e.target.closest('.record-goal-card');
+                if (!card) return;
+                const category = card.dataset.category;
+                if (!category) return;
+
+                const editBtn = e.target.closest('.record-goal-edit-btn');
+                if (editBtn) {
+                    this.openRecordGoalEditModal(category);
+                    return;
+                }
+
+                this.showMeasureView(category);
+            });
+        }
+
+        const timerStartBtn = document.getElementById('timer-start-btn');
+        const timerStopBtn = document.getElementById('timer-stop-btn');
+        if (timerStartBtn && timerStopBtn) {
+            timerStartBtn.addEventListener('click', () => this.startTimer());
+            timerStopBtn.addEventListener('click', () => this.stopTimerAndRecord());
+        }
+
+        const manualInlineSaveBtn = document.getElementById('manual-inline-save-btn');
+        if (manualInlineSaveBtn) {
+            manualInlineSaveBtn.addEventListener('click', () => this.saveManualInlineRecord());
+        }
+        const manualInlineNaTodayBtn = document.getElementById('manual-inline-na-today-btn');
+        if (manualInlineNaTodayBtn) {
+            manualInlineNaTodayBtn.addEventListener('click', () => {
+                const today = new Date();
+                const manualInlineNaDate = document.getElementById('manual-inline-na-date');
+                if (manualInlineNaDate) {
+                    manualInlineNaDate.value = this.toDateInputValue(today);
+                }
+            });
+        }
+        const measureUseTodoBtn = document.getElementById('measure-use-todo-btn');
+        if (measureUseTodoBtn) {
+            measureUseTodoBtn.addEventListener('click', () => {
+                this.applyMeasureTodoToMemo('stopwatch-memo', 'measure-use-todo-btn');
+            });
+        }
+        const timerUseTodoBtn = document.getElementById('timer-use-todo-btn');
+        if (timerUseTodoBtn) {
+            timerUseTodoBtn.addEventListener('click', () => {
+                this.applyMeasureTodoToMemo('timer-memo', 'timer-use-todo-btn');
+            });
+        }
+        const manualInlineHours = document.getElementById('manual-inline-hours');
+        const manualInlineMinutes = document.getElementById('manual-inline-minutes');
+        const manualInlineText = document.getElementById('manual-inline-text');
+        if (manualInlineHours) {
+            manualInlineHours.addEventListener('change', () => this.refreshManualInlineSaveState());
+        }
+        if (manualInlineMinutes) {
+            manualInlineMinutes.addEventListener('change', () => this.refreshManualInlineSaveState());
+        }
+        if (manualInlineText) {
+            manualInlineText.addEventListener('input', () => this.refreshManualInlineSaveState());
+        }
+
+        const recordGoalEditCloseBtn = document.getElementById('record-goal-edit-close-btn');
+        if (recordGoalEditCloseBtn) {
+            recordGoalEditCloseBtn.addEventListener('click', () => {
+                this.closeRecordGoalEditModal();
+            });
+        }
+        const recordGoalEditNaBtn = document.getElementById('record-goal-edit-na-btn');
+        if (recordGoalEditNaBtn) {
+            recordGoalEditNaBtn.addEventListener('click', async () => {
+                if (!this.currentRecordEditCategory) return;
+                const na = await this.dataManager.getNextActionByCategory(this.currentRecordEditCategory);
+                this.showNextActionModalForCategory(this.currentRecordEditCategory, na);
+                this.closeRecordGoalEditModal();
+            });
+        }
+        const recordGoalEditGoalBtn = document.getElementById('record-goal-edit-goal-btn');
+        if (recordGoalEditGoalBtn) {
+            recordGoalEditGoalBtn.addEventListener('click', () => {
+                const category = this.currentRecordEditCategory;
+                if (!category || !this.openGoalEditForm) return;
+                const goal = this.dataManager.goals?.[category];
+                if (!goal) return;
+                this.openGoalEditForm({
+                    category,
+                    weekdayMinutes: goal.weekdayMinutes ?? 0,
+                    weekendMinutes: goal.weekendMinutes ?? 0,
+                    isActive: goal.isActive !== false
+                });
+                this.closeRecordGoalEditModal();
+            });
+        }
 
         document.getElementById('category-select').addEventListener('change', (e) => {
             document.getElementById('save-record-btn').disabled = !e.target.value;
@@ -935,7 +1072,7 @@ class App {
                 this.switchView(this.pendingViewAfterNa);
                 this.pendingViewAfterNa = null;
             }
-            await this.updateNextActions();
+            await this.updateRecordGoalsList();
         });
 
         if (!this.naMenuHandlerBound) {
@@ -1167,28 +1304,8 @@ class App {
         const homeGoalAddBtn = document.getElementById('home-goal-add-btn');
         const categoryGoalAddBtn = document.getElementById('category-goal-add-btn');
 
-        const setupGoalTimeSelects = (hoursEl, minutesEl) => {
-            if (!hoursEl || !minutesEl) return;
-            hoursEl.innerHTML = '';
-            for (let h = 0; h <= 23; h++) {
-                const opt = document.createElement('option');
-                opt.value = String(h);
-                opt.textContent = String(h);
-                hoursEl.appendChild(opt);
-            }
-            minutesEl.innerHTML = '';
-            [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].forEach((m) => {
-                const opt = document.createElement('option');
-                opt.value = String(m);
-                opt.textContent = String(m).padStart(2, '0');
-                minutesEl.appendChild(opt);
-            });
-            hoursEl.value = '0';
-            minutesEl.value = '0';
-        };
-
-        setupGoalTimeSelects(goalEditWeekdayHours, goalEditWeekdayMinutes);
-        setupGoalTimeSelects(goalEditWeekendHours, goalEditWeekendMinutes);
+        setupTimeSelectOptions(goalEditWeekdayHours, goalEditWeekdayMinutes);
+        setupTimeSelectOptions(goalEditWeekendHours, goalEditWeekendMinutes);
 
         const getGoalMinutesValue = (hoursEl, minutesEl) => {
             const hours = Number(hoursEl?.value ?? 0);
@@ -1507,6 +1624,21 @@ class App {
         }
         });
 
+        const dashboardMenuBtn = document.querySelector('.dashboard-menu-btn');
+        const dashboardMenu = document.querySelector('.dashboard-menu-dropdown');
+        if (dashboardMenuBtn && dashboardMenu) {
+            dashboardMenuBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                dashboardMenu.classList.toggle('hidden');
+            });
+            document.addEventListener('click', (e) => {
+                if (dashboardMenu.classList.contains('hidden')) return;
+                if (!dashboardMenu.contains(e.target) && !dashboardMenuBtn.contains(e.target)) {
+                    dashboardMenu.classList.add('hidden');
+                }
+            });
+        }
+
         if (!this.goalMenuHandlerBound) {
             const handleGoalMenuClick = async (e) => {
                 const menuBtn = e.target.closest('.goal-menu-btn');
@@ -1594,6 +1726,14 @@ class App {
         const navBtn = document.querySelector(`[data-view="${viewName}"]`);
         if (navBtn) navBtn.classList.add('active');
         
+        if (viewName === 'home') {
+            const recordView = document.getElementById('record-view');
+            const measureView = document.getElementById('measure-view');
+            if (recordView) recordView.classList.remove('hidden');
+            if (measureView) measureView.classList.add('hidden');
+            await this.updateDashboard({ refreshNextActions: true });
+        }
+
         if (viewName === 'dashboard') {
             await this.updateDashboard();
             this.stopActiveUsersPolling();
@@ -1629,6 +1769,24 @@ class App {
             } else {
                 this.applyAvatarToElement(avatarLarge, profile.avatar_url || '');
             }
+        }
+        const categoriesEl = document.getElementById('user-profile-categories');
+        const bioEl = document.getElementById('user-profile-bio');
+        if (categoriesEl) categoriesEl.textContent = '';
+        if (bioEl) bioEl.textContent = '';
+        try {
+            const categories = await SupabaseDB.getCategoriesByUser(userId);
+            const categoryNames = (categories || []).map(c => c.name).filter(Boolean);
+            if (categoriesEl) {
+                categoriesEl.textContent = categoryNames.length ? categoryNames.join(' / ') : '未設定';
+            }
+        } catch (error) {
+            console.error('Get categories by user error:', error);
+            if (categoriesEl) categoriesEl.textContent = '未設定';
+        }
+        if (bioEl) {
+            const bioText = profile.bio || profile.one_liner || profile.message || profile.comment || '';
+            bioEl.textContent = bioText || '未設定';
         }
 
         // フォローボタンの表示制御
@@ -1704,8 +1862,7 @@ class App {
         }
         await this.updateCategorySelect();
         const categorySelect = document.getElementById('category-select');
-        const homeCategorySelect = document.getElementById('home-category-select');
-        const preferredCategory = homeCategorySelect ? homeCategorySelect.value : '';
+        const preferredCategory = this.currentMeasureCategory || '';
         if (categorySelect && preferredCategory && [...categorySelect.options].some(o => o.value === preferredCategory)) {
             categorySelect.value = preferredCategory;
         } else if (categorySelect) {
@@ -1731,7 +1888,7 @@ class App {
         return `${yyyy}-${mm}-${dd}`;
     } 
 
-    async showManualAddModal(mode = 'manual', minutes = 0, memoText = '') {
+    async showManualAddModal(mode = 'manual', minutes = 0, memoText = '', preferredCategory = '') {
         this.manualAddMode = mode;
         this.manualStopMinutes = mode === 'stop' ? Number(minutes) || 0 : 0;
 
@@ -1760,12 +1917,26 @@ class App {
         }
         await this.updateManualCategorySelect();
         const manualCategorySelect = document.getElementById('manual-category-select');
-        const homeCategorySelect = document.getElementById('home-category-select');
-        const preferredCategory = homeCategorySelect ? homeCategorySelect.value : '';
+        const manualGoalAddBtn = document.getElementById('manual-goal-add-btn');
+        const manualCategoryLabel = document.getElementById('manual-category-label');
+        const manualCategoryRow = document.getElementById('manual-category-row');
         if (manualCategorySelect && preferredCategory && [...manualCategorySelect.options].some(o => o.value === preferredCategory)) {
             manualCategorySelect.value = preferredCategory;
         } else {
             manualCategorySelect.value = '';
+        }
+        if (manualCategorySelect) {
+            manualCategorySelect.disabled = Boolean(preferredCategory);
+        }
+        if (manualGoalAddBtn) {
+            manualGoalAddBtn.disabled = Boolean(preferredCategory);
+        }
+        const hideCategory = mode === 'stop' || Boolean(preferredCategory);
+        if (manualCategoryLabel) {
+            manualCategoryLabel.classList.toggle('hidden', hideCategory);
+        }
+        if (manualCategoryRow) {
+            manualCategoryRow.classList.toggle('hidden', hideCategory);
         }
         const manualNaDateEl = document.getElementById('manual-na-datetime');
         const manualNaSaveBtn = document.getElementById('manual-na-save-btn');
@@ -1791,7 +1962,28 @@ class App {
     }
 
     hideManualAddModal() {
-        document.getElementById('manual-add-modal').classList.add('hidden');
+        const modal = document.getElementById('manual-add-modal');
+        if (modal) modal.classList.add('hidden');
+        const manualCategorySelect = document.getElementById('manual-category-select');
+        const manualGoalAddBtn = document.getElementById('manual-goal-add-btn');
+        const manualCategoryLabel = document.getElementById('manual-category-label');
+        const manualCategoryRow = document.getElementById('manual-category-row');
+        if (manualCategorySelect) manualCategorySelect.disabled = false;
+        if (manualGoalAddBtn) manualGoalAddBtn.disabled = false;
+        if (manualCategoryLabel) manualCategoryLabel.classList.remove('hidden');
+        if (manualCategoryRow) manualCategoryRow.classList.remove('hidden');
+    }
+
+    openRecordGoalEditModal(category) {
+        this.currentRecordEditCategory = category;
+        const modal = document.getElementById('record-goal-edit-modal');
+        if (modal) modal.classList.remove('hidden');
+    }
+
+    closeRecordGoalEditModal() {
+        const modal = document.getElementById('record-goal-edit-modal');
+        if (modal) modal.classList.add('hidden');
+        this.currentRecordEditCategory = null;
     }
 
     async showEditModal(record) {
@@ -1953,6 +2145,290 @@ class App {
       memoEl.classList.remove('hidden');
     }
 
+    async renderMeasureTodo(category) {
+        const targets = [
+            { boxId: 'measure-todo-box', textId: 'measure-todo-text', btnId: 'measure-use-todo-btn' },
+            { boxId: 'timer-todo-box', textId: 'timer-todo-text', btnId: 'timer-use-todo-btn' }
+        ];
+
+        if (!category) {
+            targets.forEach(({ boxId, textId, btnId }) => {
+                const box = document.getElementById(boxId);
+                const textEl = document.getElementById(textId);
+                const btn = document.getElementById(btnId);
+                if (box) box.classList.add('hidden');
+                if (textEl) textEl.textContent = '';
+                if (btn) {
+                    btn.disabled = true;
+                    btn.dataset.todo = '';
+                }
+            });
+            return;
+        }
+
+        const na = await this.dataManager.getNextActionByCategory(category);
+        const todo = na?.title ? String(na.title) : '';
+
+        targets.forEach(({ boxId, textId, btnId }) => {
+            const box = document.getElementById(boxId);
+            const textEl = document.getElementById(textId);
+            const btn = document.getElementById(btnId);
+            if (!box || !textEl || !btn) return;
+
+            box.classList.remove('hidden');
+            if (!todo) {
+                textEl.textContent = '未設定';
+                btn.disabled = true;
+                btn.dataset.todo = '';
+                return;
+            }
+
+            textEl.textContent = todo;
+            btn.disabled = false;
+            btn.dataset.todo = todo;
+        });
+    }
+
+    applyMeasureTodoToMemo(memoId, btnId) {
+        const btn = document.getElementById(btnId);
+        const memoEl = document.getElementById(memoId);
+        if (!btn || !memoEl) return;
+
+        const todo = (btn.dataset.todo || '').trim();
+        if (!todo) return;
+
+        const current = (memoEl.value || '').trim();
+        if (current && current !== todo) {
+            const ok = window.confirm('メモを上書きします。よろしいですか？');
+            if (!ok) return;
+        }
+
+        memoEl.value = todo;
+        memoEl.classList.remove('hidden');
+    }
+
+    showMeasureView(category) {
+        this.currentMeasureCategory = category;
+        const recordView = document.getElementById('record-view');
+        const measureView = document.getElementById('measure-view');
+        if (recordView) recordView.classList.add('hidden');
+        if (measureView) measureView.classList.remove('hidden');
+        const title = document.getElementById('measure-goal-title');
+        if (title) title.textContent = category || '';
+        this.switchMeasureTab(this.currentMeasureTab || 'stopwatch');
+        this.renderMeasureTodo(category);
+        this.prefillManualInline();
+        this.refreshManualInlineSaveState();
+    }
+
+    hideMeasureView() {
+        const recordView = document.getElementById('record-view');
+        const measureView = document.getElementById('measure-view');
+        if (recordView) recordView.classList.remove('hidden');
+        if (measureView) measureView.classList.add('hidden');
+        this.stopTimer(false);
+        if (this.stopwatch?.isRunning) {
+            this.stopwatch.pause();
+            const startBtn = document.getElementById('start-btn');
+            const stopBtn = document.getElementById('stop-btn');
+            if (startBtn) {
+                startBtn.textContent = '再開';
+                startBtn.classList.remove('paused');
+            }
+            if (stopBtn) stopBtn.disabled = false;
+            this.currentStatus = 'online';
+            this.updateMeasuringPresence(false);
+            SupabaseDB.updateUserStatus('online');
+        }
+    }
+
+    switchMeasureTab(tab) {
+        this.currentMeasureTab = tab;
+        document.querySelectorAll('.measure-tab').forEach((btn) => {
+            btn.classList.toggle('active', btn.dataset.tab === tab);
+        });
+        document.querySelectorAll('.measure-panel').forEach((panel) => {
+            panel.classList.toggle('active', panel.dataset.panel === tab);
+        });
+    }
+
+    updateTimerDisplay() {
+        const display = document.getElementById('timer-display');
+        if (!display) return;
+        const remaining = Math.max(0, this.timerRemainingSeconds);
+        const minutes = Math.floor(remaining / 60);
+        const seconds = remaining % 60;
+        display.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+
+    startTimer() {
+        if (this.isTimerRunning) return;
+        const hoursEl = document.getElementById('timer-hours');
+        const minutesEl = document.getElementById('timer-minutes');
+        const hours = Number(hoursEl?.value ?? 0);
+        const minutes = Number(minutesEl?.value ?? 0);
+        const totalSeconds = Math.max(0, Math.round(hours * 3600 + minutes * 60));
+        if (totalSeconds <= 0) {
+            alert('時間を設定してください。');
+            return;
+        }
+        this.timerRemainingSeconds = totalSeconds;
+        this.timerInitialSeconds = totalSeconds;
+        this.timerTotalMinutes = Math.ceil(totalSeconds / 60);
+        this.isTimerRunning = true;
+        this.updateTimerDisplay();
+        if (hoursEl) hoursEl.disabled = true;
+        if (minutesEl) minutesEl.disabled = true;
+
+        const timerStartBtn = document.getElementById('timer-start-btn');
+        const timerStopBtn = document.getElementById('timer-stop-btn');
+        if (timerStartBtn) timerStartBtn.disabled = true;
+        if (timerStopBtn) timerStopBtn.disabled = false;
+
+        this.currentStatus = 'measuring';
+        this.updateMeasuringPresence(true);
+        SupabaseDB.updateUserStatus('measuring', this.currentMeasureCategory || null);
+        if (this.isCommunityActive()) {
+            this.updateActiveUsersCount();
+        }
+
+        this.timerIntervalId = setInterval(() => {
+            this.timerRemainingSeconds -= 1;
+            if (this.timerRemainingSeconds <= 0) {
+                this.finishTimer();
+                return;
+            }
+            this.updateTimerDisplay();
+        }, 1000);
+    }
+
+    stopTimer(resetDisplay = true) {
+        if (!this.isTimerRunning && !this.timerIntervalId) {
+            if (resetDisplay) {
+                this.timerRemainingSeconds = 0;
+                this.timerTotalMinutes = 0;
+                this.timerInitialSeconds = 0;
+                this.updateTimerDisplay();
+            }
+            return;
+        }
+        if (this.timerIntervalId) {
+            clearInterval(this.timerIntervalId);
+            this.timerIntervalId = null;
+        }
+        this.isTimerRunning = false;
+        if (resetDisplay) {
+            this.timerRemainingSeconds = 0;
+            this.timerTotalMinutes = 0;
+            this.timerInitialSeconds = 0;
+            this.updateTimerDisplay();
+        }
+        const hoursEl = document.getElementById('timer-hours');
+        const minutesEl = document.getElementById('timer-minutes');
+        if (hoursEl) hoursEl.disabled = false;
+        if (minutesEl) minutesEl.disabled = false;
+        const timerStartBtn = document.getElementById('timer-start-btn');
+        const timerStopBtn = document.getElementById('timer-stop-btn');
+        if (timerStartBtn) timerStartBtn.disabled = false;
+        if (timerStopBtn) timerStopBtn.disabled = true;
+        this.currentStatus = 'online';
+        this.updateMeasuringPresence(false);
+        SupabaseDB.updateUserStatus('online');
+        if (this.isCommunityActive()) {
+            this.updateActiveUsersCount();
+        }
+    }
+
+    finishTimer() {
+        this.stopTimer(true);
+        const memoEl = document.getElementById('timer-memo');
+        const memoText = memoEl ? memoEl.value.trim() : '';
+        if (this.timerTotalMinutes > 0) {
+            this.currentStopwatchRecordedAtIso = new Date().toISOString();
+            this.showManualAddModal('stop', this.timerTotalMinutes, memoText, this.currentMeasureCategory);
+        }
+    }
+
+    stopTimerAndRecord() {
+        if (!this.isTimerRunning) {
+            this.stopTimer(true);
+            return;
+        }
+        const elapsedSeconds = Math.max(0, this.timerInitialSeconds - this.timerRemainingSeconds);
+        const elapsedMinutes = Math.ceil(elapsedSeconds / 60);
+        if (elapsedMinutes > 0) {
+            const memoEl = document.getElementById('timer-memo');
+            const memoText = memoEl ? memoEl.value.trim() : '';
+            this.currentStopwatchRecordedAtIso = new Date().toISOString();
+            this.showManualAddModal('stop', elapsedMinutes, memoText, this.currentMeasureCategory);
+        }
+        this.stopTimer(true);
+    }
+
+    refreshManualInlineSaveState() {
+        const saveBtn = document.getElementById('manual-inline-save-btn');
+        if (!saveBtn) return;
+        const hours = Number(document.getElementById('manual-inline-hours')?.value ?? 0);
+        const minutes = Number(document.getElementById('manual-inline-minutes')?.value ?? 0);
+        const totalMinutes = Math.max(0, Math.round(hours * 60 + minutes));
+        saveBtn.disabled = !this.currentMeasureCategory || totalMinutes <= 0;
+    }
+
+    async prefillManualInline() {
+        if (!this.currentMeasureCategory) return;
+        const textEl = document.getElementById('manual-inline-text');
+        if (!textEl || textEl.value.trim()) return;
+        const na = await this.dataManager.getNextActionByCategory(this.currentMeasureCategory);
+        if (na?.title) {
+            textEl.value = String(na.title);
+        }
+    }
+
+    async saveManualInlineRecord() {
+        const category = this.currentMeasureCategory;
+        if (!category) {
+            alert('目標を選択してください。');
+            return;
+        }
+
+        const hours = Number(document.getElementById('manual-inline-hours')?.value ?? 0);
+        const minutes = Number(document.getElementById('manual-inline-minutes')?.value ?? 0);
+        const totalMinutes = Math.max(0, Math.round(hours * 60 + minutes));
+        if (totalMinutes <= 0) {
+            alert('時間を設定してください。');
+            return;
+        }
+
+        const dateValue = document.getElementById('manual-inline-date')?.value || '';
+        let createdAtIso = null;
+        if (dateValue) {
+            const [y, m, d] = dateValue.split('-').map(Number);
+            const localMidnight = new Date(y, m - 1, d, 0, 0, 0);
+            createdAtIso = localMidnight.toISOString();
+        }
+
+        const text = document.getElementById('manual-inline-text')?.value.trim() || '';
+        const ok = await this.dataManager.addRecord(category, totalMinutes, text, true, createdAtIso);
+        if (!ok) return;
+
+        const naTitle = document.getElementById('manual-inline-na-title')?.value.trim() || '';
+        const naDateValue = document.getElementById('manual-inline-na-date')?.value || '';
+        if (naTitle) {
+            let scheduledAtIso = null;
+            if (naDateValue) {
+                const [y, m, d] = naDateValue.split('-').map(Number);
+                const localDate = new Date(y, m - 1, d, 0, 0, 0);
+                if (!isNaN(localDate.getTime())) scheduledAtIso = localDate.toISOString();
+            }
+            await this.dataManager.addNextAction(category, naTitle, scheduledAtIso);
+        }
+
+        this.lastRecordCategory = category;
+        await this.updateDashboard({ refreshCategories: false, refreshGoals: false });
+        await this.updateRecordGoalsList();
+        this.refreshManualInlineSaveState();
+    }
+
     async updateNaCategorySelect() {
         const select = document.getElementById('na-category-select');
         if (!select) return;
@@ -2037,7 +2513,7 @@ class App {
         }
 
         if (refreshNextActions && homeActive) {
-            await this.updateNextActions();
+            await this.updateRecordGoalsList();
         }
 
         const { start } = this.dataManager.getWeekRange(this.weekOffset);
@@ -2120,50 +2596,47 @@ class App {
         }
     }
 
-    async updateNextActions() {
-        const list = document.getElementById('na-list');
+    async updateRecordGoalsList() {
+        const list = document.getElementById('record-goals-list');
         if (!list) return;
 
-        this.toggleBlockLoader('na-list-loader', true);
         list.innerHTML = '';
 
-        try {
-            const categories = Object.entries(this.dataManager.goals || {})
-                .filter(([, goal]) => goal?.isActive !== false)
-                .map(([cat]) => cat);
+        const categories = Object.entries(this.dataManager.goals || {})
+            .filter(([, goal]) => goal?.isActive !== false)
+            .map(([cat]) => cat);
 
-            if (categories.length === 0) {
-                const p = document.createElement('p');
-                p.className = 'na-empty';
-                p.textContent = 'カテゴリがありません';
-                list.appendChild(p);
-                return;
-            }
-
-            const actionsMap = await this.dataManager.getNextActionsMap();
-
-            categories.forEach((category) => {
-                const na = actionsMap[category] || null;
-                const item = document.createElement('div');
-                item.className = 'na-item';
-                item.dataset.category = category;
-                const title = na?.title ? this.escapeHtml(na.title) : '未設定';
-                const dateText = na?.scheduled_at ? this.formatNaDateTime(na.scheduled_at) : '';
-                item.innerHTML = `
-                    <div class="na-meta">
-                        <span class="na-category">${this.escapeHtml(category)}</span>
-                        <button class="na-menu-btn" type="button" aria-label="NAメニュー">⋯</button>
-                    </div>
-                    <div class="na-title-row">
-                        ${dateText ? `<span class="na-date">${this.escapeHtml(dateText)}</span>` : ''}
-                        <span class="na-title-text">${title}</span>
-                    </div>
-                `;
-                list.appendChild(item);
-            });
-        } finally {
-            this.toggleBlockLoader('na-list-loader', false);
+        if (categories.length === 0) {
+            return;
         }
+
+        const actionsMap = await this.dataManager.getNextActionsMap();
+
+        categories.forEach((category) => {
+            const na = actionsMap[category] || null;
+            const card = document.createElement('div');
+            card.className = 'record-goal-card';
+            card.dataset.category = category;
+            const title = na?.title ? this.escapeHtml(na.title) : '未設定';
+            const dateText = na?.scheduled_at ? this.formatNaDateTime(na.scheduled_at) : '';
+            card.innerHTML = `
+                <div class="record-goal-main">
+                    <div class="record-goal-head">
+                        <div class="record-goal-head-left">
+                            <div class="record-goal-title">${this.escapeHtml(category)}</div>
+                            ${dateText ? `<span class="record-goal-date">${this.escapeHtml(dateText)}</span>` : ''}
+                        </div>
+                        <button class="record-goal-edit-btn" type="button">編集</button>
+                    </div>
+                    <div class="record-goal-todo">${title}</div>
+                </div>
+                <div class="record-goal-actions hidden">
+                    <button class="record-goal-action-btn" type="button" data-action="edit-na">やること編集</button>
+                    <button class="record-goal-action-btn" type="button" data-action="edit-goal">目標編集</button>
+                </div>
+            `;
+            list.appendChild(card);
+        });
     }
 
     formatNaDateTime(iso) {
@@ -2842,12 +3315,11 @@ class App {
         this.stopStatusHeartbeat();
         const tick = async () => {
             if (!this.dataManager?.currentUser) return;
-            const isMeasuring = this.stopwatch?.isRunning || this.isMeasuringInAnyTab();
+            const isMeasuring = this.stopwatch?.isRunning || this.isTimerRunning || this.isMeasuringInAnyTab();
             const status = isMeasuring ? 'measuring' : (this.currentStatus || 'online');
             let category = null;
-            if (this.stopwatch?.isRunning) {
-                const selectedCategory = document.getElementById('home-category-select')?.value;
-                category = selectedCategory || null;
+            if (this.stopwatch?.isRunning || this.isTimerRunning) {
+                category = this.currentMeasureCategory || null;
             }
             this.currentStatus = status;
             try {

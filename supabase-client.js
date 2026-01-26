@@ -162,6 +162,17 @@ const SupabaseDB = {
     return data;
   },
 
+  async getCategoriesByUser(userId) {
+    if (!userId) return [];
+    const { data, error } = await supabaseClient
+      .from('categories')
+      .select('name')
+      .eq('user_id', userId);
+
+    if (error) throw error;
+    return data;
+  },
+
   async deleteCategory(name) {
     const user = await SupabaseAuth.getCurrentUser();
     const { error } = await supabaseClient
