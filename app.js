@@ -2612,7 +2612,22 @@ class App {
 
         const actionsMap = await this.dataManager.getNextActionsMap();
 
-        categories.forEach((category) => {
+        const sorted = categories
+            .map((category, index) => {
+                const na = actionsMap[category] || null;
+                const ts = na?.scheduled_at ? new Date(na.scheduled_at).getTime() : null;
+                return { category, index, ts };
+            })
+            .sort((a, b) => {
+                if (a.ts === null && b.ts === null) return a.index - b.index;
+                if (a.ts === null) return 1;
+                if (b.ts === null) return -1;
+                if (a.ts !== b.ts) return a.ts - b.ts;
+                return a.index - b.index;
+            })
+            .map(item => item.category);
+
+        sorted.forEach((category) => {
             const na = actionsMap[category] || null;
             const card = document.createElement('div');
             card.className = 'record-goal-card';
