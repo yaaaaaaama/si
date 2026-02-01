@@ -241,14 +241,18 @@ const SupabaseDB = {
   },
 
   // 記録更新
-  async updateRecord(recordId, category, minutes, text) {
+  async updateRecord(recordId, category, minutes, text, recordedAtIso = null) {
+    const payload = {
+      category,
+      minutes,
+      text
+    };
+    if (recordedAtIso) {
+      payload.recorded_at = recordedAtIso;
+    }
     const { data, error } = await supabaseClient
       .from('records')
-      .update({
-        category,
-        minutes,
-        text,
-      })
+      .update(payload)
       .eq('id', recordId)
       .select()
       .single();

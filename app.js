@@ -242,9 +242,9 @@ class DataManager {
     }
     }
 
-    async updateRecord(recordId, category, minutes, text) {
+    async updateRecord(recordId, category, minutes, text, recordedAtIso = null) {
         try {
-            await SupabaseDB.updateRecord(recordId, category, minutes, text);
+            await SupabaseDB.updateRecord(recordId, category, minutes, text, recordedAtIso);
             return true;
         } catch (error) {
             console.error('Update record error:', error);
@@ -395,6 +395,7 @@ class DataManager {
                     likes: post.likes,
                     commentsCount: post.commentsCount,
                     timestamp: new Date(recordedAt).getTime(),
+                    recorded_at: recordedAt,
                     isLiked: post.isLiked,
                     isMyPost: post.isMyPost,
                     comments: []
@@ -1316,9 +1317,25 @@ class App {
             const totalMinutes = hours * 60 + minutes;
             const category = document.getElementById('edit-category-select').value;
             const text = document.getElementById('edit-post-text').value.trim();
+            const editDateValue = document.getElementById('edit-date')?.value || '';
+            let recordedAtIso = null;
+            if (editDateValue) {
+                const [y, m, d] = editDateValue.split('-').map(Number);
+                const baseTime = this.currentEditRecordTime ? new Date(this.currentEditRecordTime) : new Date();
+                const localDate = new Date(
+                    y,
+                    m - 1,
+                    d,
+                    baseTime.getHours(),
+                    baseTime.getMinutes(),
+                    baseTime.getSeconds(),
+                    baseTime.getMilliseconds()
+                );
+                if (!isNaN(localDate.getTime())) recordedAtIso = localDate.toISOString();
+            }
 
             if (category && totalMinutes > 0 && this.currentEditRecordId) {
-                await this.dataManager.updateRecord(this.currentEditRecordId, category, totalMinutes, text);
+                await this.dataManager.updateRecord(this.currentEditRecordId, category, totalMinutes, text, recordedAtIso);
                 this.hideEditModal();
                 
                 // 現在のビューを再読み込み
@@ -1330,6 +1347,14 @@ class App {
                 }
             }
         });
+
+        const editDateTodayBtn = document.getElementById('edit-date-today-btn');
+        if (editDateTodayBtn) {
+            editDateTodayBtn.addEventListener('click', () => {
+                const editDateEl = document.getElementById('edit-date');
+                if (editDateEl) editDateEl.value = this.toDateValue(new Date());
+            });
+        }
 
         // ナビゲーション
         document.querySelectorAll('.nav-btn').forEach(btn => {
@@ -1932,7 +1957,7 @@ class App {
         const card = document.createElement('div');
         card.className = 'record-card';
 
-        const time = new Date(record.created_at);
+        const time = new Date(record.recorded_at ?? record.created_at);
         const dateStr = `${time.getFullYear()}/${time.getMonth() + 1}/${time.getDate()}`;
         const timeStr = `${String(time.getHours()).padStart(2, '0')}:${String(time.getMinutes()).padStart(2, '0')}`;
 
@@ -2093,6 +2118,7 @@ class App {
 
     async showEditModal(record) {
         this.currentEditRecordId = record.id;
+        this.currentEditRecordTime = record.recorded_at ?? record.recordedAt ?? record.created_at ?? null;
         
         let hours = Math.floor(record.minutes / 60);
         const minutes = record.minutes % 60;
@@ -2119,6 +2145,11 @@ class App {
         await this.updateEditCategorySelect();
         document.getElementById('edit-category-select').value = record.category;
         document.getElementById('edit-post-text').value = record.text || '';
+        const editDateEl = document.getElementById('edit-date');
+        const baseTime = this.currentEditRecordTime ? new Date(this.currentEditRecordTime) : new Date();
+        if (editDateEl && !isNaN(baseTime.getTime())) {
+            editDateEl.value = this.toDateValue(baseTime);
+        }
         
         document.getElementById('edit-modal').classList.remove('hidden');
     }
@@ -2126,6 +2157,7 @@ class App {
     hideEditModal() {
         document.getElementById('edit-modal').classList.add('hidden');
         this.currentEditRecordId = null;
+        this.currentEditRecordTime = null;
     }
 
     async showFollowingModal() {
@@ -3570,7 +3602,8 @@ class App {
                             id: post.recordId,
                             minutes: post.minutes,
                             category: post.category,
-                            text: post.text || ''
+                            text: post.text || '',
+                            recorded_at: post.recorded_at || null
                         });
                         menu.classList.add('hidden');
                         return;
