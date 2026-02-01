@@ -642,6 +642,73 @@ class App {
     return `${yyyy}-${mm}-${dd}`;
     }
 
+    setButtonProcessing(btn, isProcessing) {
+        if (!btn) return;
+        if (isProcessing) {
+            btn.dataset.prevDisabled = btn.disabled ? 'true' : 'false';
+            btn.disabled = true;
+            btn.classList.add('is-processing');
+            btn.setAttribute('aria-busy', 'true');
+            return;
+        }
+        btn.classList.remove('is-processing');
+        btn.removeAttribute('aria-busy');
+        const prevDisabled = btn.dataset.prevDisabled === 'true';
+        delete btn.dataset.prevDisabled;
+        btn.disabled = prevDisabled;
+    }
+
+    setViewLoading(viewOrName, isLoading) {
+        const view = typeof viewOrName === 'string'
+            ? document.getElementById(`${viewOrName}-view`)
+            : viewOrName;
+        if (!view) return;
+        view.classList.toggle('is-loading', isLoading);
+        if (isLoading) {
+            view.setAttribute('aria-busy', 'true');
+        } else {
+            view.removeAttribute('aria-busy');
+        }
+    }
+
+    async ensureMinLoaderTime(startTime, minMs = 600) {
+        const elapsed = performance.now() - startTime;
+        const remaining = minMs - elapsed;
+        if (remaining > 0) {
+            await new Promise(resolve => setTimeout(resolve, remaining));
+        }
+    }
+
+    bindAsyncButton(btn, handler, options = {}) {
+        if (!btn) return;
+        const restoreDisabled = options.restoreDisabled !== false;
+        btn.addEventListener('click', async (e) => {
+            if (btn.disabled) return;
+            const wasDisabled = btn.disabled;
+            this.setButtonProcessing(btn, true);
+            try {
+                await handler(e);
+            } finally {
+                if (restoreDisabled) {
+                    this.setButtonProcessing(btn, false);
+                } else {
+                    btn.classList.remove('is-processing');
+                    btn.removeAttribute('aria-busy');
+                    delete btn.dataset.prevDisabled;
+                    btn.disabled = wasDisabled ? true : btn.disabled;
+                }
+            }
+        });
+    }
+
+    ensureManualInlineNaDate() {
+        const manualInlineNaDate = document.getElementById('manual-inline-na-date');
+        if (!manualInlineNaDate || manualInlineNaDate.value) return;
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        manualInlineNaDate.value = this.toDateInputValue(tomorrow);
+    }
+
 
     setupEventListeners() {
 
@@ -667,7 +734,7 @@ class App {
         });
 
         // ログイン
-        document.getElementById('login-submit-btn').addEventListener('click', async () => {
+        this.bindAsyncButton(document.getElementById('login-submit-btn'), async () => {
             const email = document.getElementById('login-email').value.trim();
             const password = document.getElementById('login-password').value;
             
@@ -691,7 +758,7 @@ class App {
         });
 
         // 新規登録
-        document.getElementById('register-submit-btn').addEventListener('click', async () => {
+        this.bindAsyncButton(document.getElementById('register-submit-btn'), async () => {
             const email = document.getElementById('register-email').value.trim();
             const password = document.getElementById('register-password').value;
             const passwordConfirm = document.getElementById('register-password-confirm').value;
@@ -775,12 +842,13 @@ class App {
         if (manualInlineDate) {
             manualInlineDate.value = this.toDateValue(new Date());
         }
+        this.ensureManualInlineNaDate();
 
         // ストップウォッチ
         const startBtn = document.getElementById('start-btn');
         const stopBtn = document.getElementById('stop-btn');
         if (startBtn && stopBtn) {
-            startBtn.addEventListener('click', async () => {
+            this.bindAsyncButton(startBtn, async () => {
             const memoEl = document.getElementById('stopwatch-memo');
 
             if (!this.stopwatch.isRunning) {
@@ -835,7 +903,7 @@ class App {
         }
 
         if (stopBtn) {
-            stopBtn.addEventListener('click', async () => {
+            this.bindAsyncButton(stopBtn, async () => {
             const minutes = this.stopwatch.getMinutes();
             const memoEl = document.getElementById('stopwatch-memo');
             const memoText = memoEl ? memoEl.value.trim() : '';
@@ -855,9 +923,9 @@ class App {
             this.currentStatus = 'online';
             this.updateMeasuringPresence(false);
             await SupabaseDB.updateUserStatus('online');
-            if (this.isCommunityActive()) {
-                await this.updateActiveUsersCount();
-            }
+                if (this.isCommunityActive()) {
+                    await this.updateActiveUsersCount();
+                }
             });
         }
 
@@ -904,7 +972,11 @@ class App {
 
         const manualInlineSaveBtn = document.getElementById('manual-inline-save-btn');
         if (manualInlineSaveBtn) {
-            manualInlineSaveBtn.addEventListener('click', () => this.saveManualInlineRecord());
+            this.bindAsyncButton(
+                manualInlineSaveBtn,
+                async () => this.saveManualInlineRecord(),
+                { restoreDisabled: false }
+            );
         }
         const manualInlineNaTodayBtn = document.getElementById('manual-inline-na-today-btn');
         if (manualInlineNaTodayBtn) {
@@ -949,7 +1021,7 @@ class App {
         }
         const recordGoalEditNaBtn = document.getElementById('record-goal-edit-na-btn');
         if (recordGoalEditNaBtn) {
-            recordGoalEditNaBtn.addEventListener('click', async () => {
+            this.bindAsyncButton(recordGoalEditNaBtn, async () => {
                 if (!this.currentRecordEditCategory) return;
                 const na = await this.dataManager.getNextActionByCategory(this.currentRecordEditCategory);
                 this.showNextActionModalForCategory(this.currentRecordEditCategory, na);
@@ -984,7 +1056,7 @@ class App {
             });
         }
 
-        document.getElementById('save-record-btn').addEventListener('click', async () => {
+        this.bindAsyncButton(document.getElementById('save-record-btn'), async () => {
             const category = document.getElementById('category-select').value;
             const recordedTimeEl = document.getElementById('recorded-time');
             const minutes = Number(recordedTimeEl?.dataset?.minutes) || 0;
@@ -1041,12 +1113,12 @@ class App {
 
         naTitleEl.addEventListener('input', refreshNaSaveEnabled);
 
-        document.getElementById('na-skip-btn').addEventListener('click', async () => {
+        this.bindAsyncButton(document.getElementById('na-skip-btn'), async () => {
             this.hideNextActionModal();
             this.pendingViewAfterNa = null;
         });
 
-        document.getElementById('na-save-btn').addEventListener('click', async () => {
+        this.bindAsyncButton(document.getElementById('na-save-btn'), async () => {
             const title = document.getElementById('na-title').value.trim();
             const dtValue = document.getElementById('na-datetime').value;
 
@@ -1195,7 +1267,7 @@ class App {
         };
 
         if (manualNaSkipBtn) {
-            manualNaSkipBtn.addEventListener('click', async () => {
+            this.bindAsyncButton(manualNaSkipBtn, async () => {
                 if (manualNaTitleEl) manualNaTitleEl.value = '';
                 if (manualNaDateEl) manualNaDateEl.value = '';
                 refreshManualNaSaveEnabled();
@@ -1206,7 +1278,7 @@ class App {
         }
 
         if (manualNaSaveBtn) {
-            manualNaSaveBtn.addEventListener('click', async () => {
+            this.bindAsyncButton(manualNaSaveBtn, async () => {
                 const saved = await saveManualRecord();
                 if (!saved) return;
                 const title = manualNaTitleEl ? manualNaTitleEl.value.trim() : '';
@@ -1222,6 +1294,7 @@ class App {
                     if (!ok) return;
                 }
 
+                await this.updateDashboard({ refreshCategories: false, refreshGoals: false, refreshNextActions: true });
                 if (manualNaTitleEl) manualNaTitleEl.value = '';
                 if (manualNaDateEl) manualNaDateEl.value = '';
                 refreshManualNaSaveEnabled();
@@ -1237,7 +1310,7 @@ class App {
             this.hideEditModal();
         });
 
-        document.getElementById('edit-save-btn').addEventListener('click', async () => {
+        this.bindAsyncButton(document.getElementById('edit-save-btn'), async () => {
             const hours = parseInt(document.getElementById('edit-hours').value) || 0;
             const minutes = parseInt(document.getElementById('edit-minutes').value) || 0;
             const totalMinutes = hours * 60 + minutes;
@@ -1285,9 +1358,9 @@ class App {
             this.switchView('dashboard');
         });
 
-        document.getElementById('save-goals-btn').addEventListener('click', () => {
-            this.saveGoals();
-            this.switchView('dashboard');
+        this.bindAsyncButton(document.getElementById('save-goals-btn'), async () => {
+            await this.saveGoals();
+            await this.switchView('dashboard');
         });
 
         const goalEditModal = document.getElementById('goal-edit-modal');
@@ -1376,7 +1449,7 @@ class App {
             });
         }
         if (goalEditSaveBtn) {
-            goalEditSaveBtn.addEventListener('click', async () => {
+            this.bindAsyncButton(goalEditSaveBtn, async () => {
                 const categoryInput = goalEditCategory ? goalEditCategory.value.trim() : '';
                 const weekdayMinutes = getGoalMinutesValue(goalEditWeekdayHours, goalEditWeekdayMinutes);
                 const weekendMinutes = getGoalMinutesValue(goalEditWeekendHours, goalEditWeekendMinutes);
@@ -1433,7 +1506,7 @@ class App {
                 setGoalTimeValue(goalEditWeekendHours, goalEditWeekendMinutes, 0);
                 if (goalEditApplyFlag) goalEditApplyFlag.checked = true;
                 refreshGoalEditState();
-            });
+            }, { restoreDisabled: false });
         }
         if (goalAddBtn) {
             goalAddBtn.addEventListener('click', () => {
@@ -1579,7 +1652,7 @@ class App {
 
 
         // フォローボタン
-        document.getElementById('follow-btn').addEventListener('click', async () => {
+        this.bindAsyncButton(document.getElementById('follow-btn'), async () => {
             if (this.currentViewUserId) {
                 await this.dataManager.toggleFollow(this.currentViewUserId);
                 await this.showUserPage(this.currentViewUserId);
@@ -1588,18 +1661,18 @@ class App {
         
         const prevBtn = document.getElementById('week-prev-btn');
         if (prevBtn) {
-        prevBtn.addEventListener('click', async () => {
-            this.weekOffset -= 1;
-            await this.updateDashboard();
-        });
+            this.bindAsyncButton(prevBtn, async () => {
+                this.weekOffset -= 1;
+                await this.updateDashboard();
+            });
         }
 
         const nextBtn = document.getElementById('week-next-btn');
         if (nextBtn) {
-        nextBtn.addEventListener('click', async () => {
-            this.weekOffset += 1;
-            await this.updateDashboard();
-        });
+            this.bindAsyncButton(nextBtn, async () => {
+                this.weekOffset += 1;
+                await this.updateDashboard();
+            });
         }
 
         // どこにボタンを移動しても data-action="logout" があれば動く
@@ -1651,58 +1724,64 @@ class App {
 
                 const menuItem = e.target.closest('.goal-menu-item');
                 if (!menuItem) return;
+                if (menuItem.disabled) return;
                 e.stopPropagation();
-                const action = menuItem.dataset.action;
-                const item = menuItem.closest('.goal-list-item');
-                const category = item?.dataset.category;
-                if (!category) return;
-                const goal = this.dataManager.goals?.[category];
-                const menu = menuItem.closest('.goal-menu-dropdown');
+                this.setButtonProcessing(menuItem, true);
+                try {
+                    const action = menuItem.dataset.action;
+                    const item = menuItem.closest('.goal-list-item');
+                    const category = item?.dataset.category;
+                    if (!category) return;
+                    const goal = this.dataManager.goals?.[category];
+                    const menu = menuItem.closest('.goal-menu-dropdown');
 
-                if (action === 'edit') {
-                    if (!goal || !this.openGoalEditForm) return;
-                    this.openGoalEditForm({
-                        category,
-                        weekdayMinutes: goal.weekdayMinutes ?? 0,
-                        weekendMinutes: goal.weekendMinutes ?? 0,
-                        isActive: goal.isActive !== false,
-                        isNew: false
-                    });
-                    if (menu) menu.classList.add('hidden');
-                    return;
-                }
+                    if (action === 'edit') {
+                        if (!goal || !this.openGoalEditForm) return;
+                        this.openGoalEditForm({
+                            category,
+                            weekdayMinutes: goal.weekdayMinutes ?? 0,
+                            weekendMinutes: goal.weekendMinutes ?? 0,
+                            isActive: goal.isActive !== false,
+                            isNew: false
+                        });
+                        if (menu) menu.classList.add('hidden');
+                        return;
+                    }
 
-                if (action === 'delete') {
-                    const existingNa = await this.dataManager.getNextActionByCategory(category);
-                    if (existingNa) {
-                        const ok = window.confirm('やることが設定されていますが処理を続けても良いですか？（続けた場合やることは削除されます）');
+                    if (action === 'delete') {
+                        const existingNa = await this.dataManager.getNextActionByCategory(category);
+                        if (existingNa) {
+                            const ok = window.confirm('やることが設定されていますが処理を続けても良いですか？（続けた場合やることは削除されます）');
+                            if (!ok) return;
+                            const deleted = await this.dataManager.deleteNextActionsByCategory(category);
+                            if (!deleted) {
+                                alert('やることの削除に失敗しました。');
+                                return;
+                            }
+                        }
+                        const ok = window.confirm('このカテゴリを削除します。記録や投稿は削除されません。よろしいですか？');
                         if (!ok) return;
-                        const deleted = await this.dataManager.deleteNextActionsByCategory(category);
-                        if (!deleted) {
-                            alert('やることの削除に失敗しました。');
+                        const goalDeleted = await this.dataManager.deleteGoal(category);
+                        const categoryDeleted = await this.dataManager.deleteCategory(category);
+                        if (!goalDeleted) {
+                            alert('目標の削除に失敗しました。権限やRLSを確認してください。');
                             return;
                         }
+                        if (!categoryDeleted) {
+                            alert('カテゴリの削除に失敗しました。権限やRLSを確認してください。');
+                            return;
+                        }
+                        if (this.dataManager.goals?.[category]) {
+                            delete this.dataManager.goals[category];
+                        }
+                        if (Array.isArray(this.dataManager.categories)) {
+                            this.dataManager.categories = this.dataManager.categories.filter(c => c !== category);
+                        }
+                        await this.updateDashboard();
+                        if (menu) menu.classList.add('hidden');
                     }
-                    const ok = window.confirm('このカテゴリを削除します。記録や投稿は削除されません。よろしいですか？');
-                    if (!ok) return;
-                    const goalDeleted = await this.dataManager.deleteGoal(category);
-                    const categoryDeleted = await this.dataManager.deleteCategory(category);
-                    if (!goalDeleted) {
-                        alert('目標の削除に失敗しました。権限やRLSを確認してください。');
-                        return;
-                    }
-                    if (!categoryDeleted) {
-                        alert('カテゴリの削除に失敗しました。権限やRLSを確認してください。');
-                        return;
-                    }
-                    if (this.dataManager.goals?.[category]) {
-                        delete this.dataManager.goals[category];
-                    }
-                    if (Array.isArray(this.dataManager.categories)) {
-                        this.dataManager.categories = this.dataManager.categories.filter(c => c !== category);
-                    }
-                    await this.updateDashboard();
-                    if (menu) menu.classList.add('hidden');
+                } finally {
+                    this.setButtonProcessing(menuItem, false);
                 }
             };
 
@@ -1719,32 +1798,45 @@ class App {
     }
 
     async switchView(viewName) {
-        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+        document.querySelectorAll('.view').forEach(v => {
+            v.classList.remove('active');
+            v.classList.remove('is-loading');
+            v.removeAttribute('aria-busy');
+        });
         document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
         
-        document.getElementById(`${viewName}-view`).classList.add('active');
+        const view = document.getElementById(`${viewName}-view`);
+        if (!view) return;
+        view.classList.add('active');
+        this.setViewLoading(view, true);
+        const loaderStart = performance.now();
         const navBtn = document.querySelector(`[data-view="${viewName}"]`);
         if (navBtn) navBtn.classList.add('active');
         
-        if (viewName === 'home') {
-            const recordView = document.getElementById('record-view');
-            const measureView = document.getElementById('measure-view');
-            if (recordView) recordView.classList.remove('hidden');
-            if (measureView) measureView.classList.add('hidden');
-            await this.updateDashboard({ refreshNextActions: true });
-        }
+        try {
+            if (viewName === 'home') {
+                const recordView = document.getElementById('record-view');
+                const measureView = document.getElementById('measure-view');
+                if (recordView) recordView.classList.remove('hidden');
+                if (measureView) measureView.classList.add('hidden');
+                await this.updateDashboard({ refreshNextActions: true });
+            }
 
-        if (viewName === 'dashboard') {
-            await this.updateDashboard();
-            this.stopActiveUsersPolling();
-        } else if (viewName === 'community') {
-            await this.updateCommunity('recommended');
-            this.startActiveUsersPolling();
-        } else if (viewName === 'schedule') {
-            await this.updateSchedule('recommended');
-            this.stopActiveUsersPolling();
-        } else {
-            this.stopActiveUsersPolling();
+            if (viewName === 'dashboard') {
+                await this.updateDashboard();
+                this.stopActiveUsersPolling();
+            } else if (viewName === 'community') {
+                await this.updateCommunity('recommended');
+                this.startActiveUsersPolling();
+            } else if (viewName === 'schedule') {
+                await this.updateSchedule('recommended');
+                this.stopActiveUsersPolling();
+            } else {
+                this.stopActiveUsersPolling();
+            }
+        } finally {
+            await this.ensureMinLoaderTime(loaderStart);
+            this.setViewLoading(view, false);
         }
     }
 
@@ -1752,41 +1844,54 @@ class App {
         this.currentViewUserId = userId;
         
         // ビューを切り替え
-        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+        document.querySelectorAll('.view').forEach(v => {
+            v.classList.remove('active');
+            v.classList.remove('is-loading');
+            v.removeAttribute('aria-busy');
+        });
         document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-        document.getElementById('user-view').classList.add('active');
+        const userView = document.getElementById('user-view');
+        if (!userView) return;
+        userView.classList.add('active');
+        this.setViewLoading(userView, true);
+        const loaderStart = performance.now();
         const navBtn = document.querySelector('[data-view="user"]');
         if (navBtn) navBtn.classList.add('active');
 
-        // プロフィール情報を取得
-        const profile = await SupabaseDB.getProfile(userId);
-        document.getElementById('user-profile-name').textContent = profile.nickname;
-        document.getElementById('user-profile-username').textContent = `@${profile.username}`;
-        const avatarLarge = document.querySelector('.user-avatar-large');
-        if (avatarLarge) {
-            if (userId === this.dataManager.currentUser.id) {
-                this.applyAvatarToElement(avatarLarge, this.dataManager.userProfile?.avatar_url || '');
-            } else {
-                this.applyAvatarToElement(avatarLarge, profile.avatar_url || '');
-            }
-        }
-        const categoriesEl = document.getElementById('user-profile-categories');
-        const bioEl = document.getElementById('user-profile-bio');
-        if (categoriesEl) categoriesEl.textContent = '';
-        if (bioEl) bioEl.textContent = '';
         try {
-            const categories = await SupabaseDB.getCategoriesByUser(userId);
-            const categoryNames = (categories || []).map(c => c.name).filter(Boolean);
-            if (categoriesEl) {
-                categoriesEl.textContent = categoryNames.length ? categoryNames.join(' / ') : '未設定';
+            // プロフィール情報を取得
+            const profile = await SupabaseDB.getProfile(userId);
+            document.getElementById('user-profile-name').textContent = profile.nickname;
+            document.getElementById('user-profile-username').textContent = `@${profile.username}`;
+            const avatarLarge = document.querySelector('.user-avatar-large');
+            if (avatarLarge) {
+                if (userId === this.dataManager.currentUser.id) {
+                    this.applyAvatarToElement(avatarLarge, this.dataManager.userProfile?.avatar_url || '');
+                } else {
+                    this.applyAvatarToElement(avatarLarge, profile.avatar_url || '');
+                }
             }
-        } catch (error) {
-            console.error('Get categories by user error:', error);
-            if (categoriesEl) categoriesEl.textContent = '未設定';
-        }
-        if (bioEl) {
-            const bioText = profile.bio || profile.one_liner || profile.message || profile.comment || '';
-            bioEl.textContent = bioText || '未設定';
+            const categoriesEl = document.getElementById('user-profile-categories');
+            const bioEl = document.getElementById('user-profile-bio');
+            if (categoriesEl) categoriesEl.textContent = '';
+            if (bioEl) bioEl.textContent = '';
+            try {
+                const categories = await SupabaseDB.getCategoriesByUser(userId);
+                const categoryNames = (categories || []).map(c => c.name).filter(Boolean);
+                if (categoriesEl) {
+                    categoriesEl.textContent = categoryNames.length ? categoryNames.join(' / ') : '未設定';
+                }
+            } catch (error) {
+                console.error('Get categories by user error:', error);
+                if (categoriesEl) categoriesEl.textContent = '未設定';
+            }
+            if (bioEl) {
+                const bioText = profile.bio || profile.one_liner || profile.message || profile.comment || '';
+                bioEl.textContent = bioText || '未設定';
+            }
+        } finally {
+            await this.ensureMinLoaderTime(loaderStart);
+            this.setViewLoading(userView, false);
         }
 
         // フォローボタンの表示制御
@@ -2048,7 +2153,7 @@ class App {
 
                 // フォロー解除ボタン
                 const unfollowBtn = item.querySelector('.unfollow-btn');
-                unfollowBtn.addEventListener('click', async () => {
+                this.bindAsyncButton(unfollowBtn, async () => {
                     await this.dataManager.toggleFollow(user.id);
                     await this.showFollowingModal();
                 });
@@ -2218,6 +2323,7 @@ class App {
         this.switchMeasureTab(this.currentMeasureTab || 'stopwatch');
         this.renderMeasureTodo(category);
         this.prefillManualInline();
+        this.ensureManualInlineNaDate();
         this.refreshManualInlineSaveState();
     }
 
@@ -2427,6 +2533,7 @@ class App {
         await this.updateDashboard({ refreshCategories: false, refreshGoals: false });
         await this.updateRecordGoalsList();
         this.refreshManualInlineSaveState();
+        await this.switchView('dashboard');
     }
 
     async updateNaCategorySelect() {
@@ -2481,117 +2588,137 @@ class App {
         const {
             refreshCategories = true,
             refreshGoals = true,
-            refreshNextActions = true
+            refreshNextActions = true,
+            showViewLoader = true
         } = options;
         const dashboardActive = typeof this.isDashboardActive === 'function' ? this.isDashboardActive() : true;
         const homeActive = typeof this.isHomeActive === 'function' ? this.isHomeActive() : true;
+        const shouldShowViewLoader = dashboardActive && showViewLoader;
+        const shouldShowHomeLoader = homeActive && refreshNextActions;
+        const homeLoaderStart = shouldShowHomeLoader ? performance.now() : null;
+        if (shouldShowViewLoader) {
+            this.setViewLoading('dashboard', true);
+        }
+        if (shouldShowHomeLoader) {
+            this.setViewLoading('home', true);
+        }
         if (dashboardActive) {
             this.toggleBlockLoader('week-chart-loader', true);
         }
 
-        const categoriesPromise = refreshCategories
-            ? this.dataManager.getCategories()
-            : Promise.resolve(this.dataManager.categories || []);
-        const goalsPromise = refreshGoals
-            ? this.dataManager.getGoals()
-            : Promise.resolve(this.dataManager.goals || {});
-        const weekRecordsPromise = this.dataManager.getWeekRecords(this.weekOffset);
-        const streakPromise = this.dataManager.getStreak();
+        try {
+            const categoriesPromise = refreshCategories
+                ? this.dataManager.getCategories()
+                : Promise.resolve(this.dataManager.categories || []);
+            const goalsPromise = refreshGoals
+                ? this.dataManager.getGoals()
+                : Promise.resolve(this.dataManager.goals || {});
+            const weekRecordsPromise = this.dataManager.getWeekRecords(this.weekOffset);
+            const streakPromise = this.dataManager.getStreak();
 
-        const [categories, goals, weekRecords, streak] = await Promise.all([
-            categoriesPromise,
-            goalsPromise,
-            weekRecordsPromise,
-            streakPromise
-        ]);
+            const [categories, goals, weekRecords, streak] = await Promise.all([
+                categoriesPromise,
+                goalsPromise,
+                weekRecordsPromise,
+                streakPromise
+            ]);
 
-        this.dataManager.categories = categories;
-        this.dataManager.goals = goals;
+            this.dataManager.categories = categories;
+            this.dataManager.goals = goals;
 
-        if (dashboardActive) {
-            this.updateGoalRegistrationUI();
-        }
-
-        if (refreshNextActions && homeActive) {
-            await this.updateRecordGoalsList();
-        }
-
-        const { start } = this.dataManager.getWeekRange(this.weekOffset);
-
-        const totalMinutes = weekRecords.reduce((sum, r) => sum + r.minutes, 0);
-        const hours = Math.floor(totalMinutes / 60);
-        const minutes = totalMinutes % 60;
-        document.getElementById('week-total').textContent = `${hours}時間${minutes}分`;
-
-        const goalTotalMinutes = Object.values(this.dataManager.goals || {})
-            .filter(goal => goal?.isActive !== false)
-            .reduce((sum, goal) => sum + (Number(goal.totalMinutes) || 0), 0);
-        const goalTextEl = document.getElementById('week-goal-progress');
-        if (goalTextEl) {
-            if (goalTotalMinutes > 0) {
-                const rate = Math.min(Math.round((totalMinutes / goalTotalMinutes) * 100), 999);
-                goalTextEl.textContent = `達成率 ${rate}% ・ 目標 ${this.formatDuration(goalTotalMinutes)}`;
-            } else {
-                goalTextEl.textContent = '目標未設定';
+            if (dashboardActive) {
+                this.updateGoalRegistrationUI();
             }
-        }
 
-        const today = new Date();
-        const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-        const todayMinutes = weekRecords.reduce((sum, r) => {
-            const recordedAt = new Date(r.recorded_at ?? r.created_at);
-            if (isNaN(recordedAt.getTime())) return sum;
-            const d = new Date(recordedAt.getFullYear(), recordedAt.getMonth(), recordedAt.getDate());
-            return d.getTime() === todayStart.getTime() ? sum + (Number(r.minutes) || 0) : sum;
-        }, 0);
-        const isWeekend = today.getDay() === 0 || today.getDay() === 6;
-        const todayGoalMinutes = Object.values(this.dataManager.goals || {})
-            .filter(goal => goal?.isActive !== false)
-            .reduce((sum, goal) => {
-                const minutes = Number(isWeekend ? goal.weekendMinutes : goal.weekdayMinutes) || 0;
-                return sum + minutes;
+            if (refreshNextActions && homeActive) {
+                await this.updateRecordGoalsList();
+            }
+
+            const { start } = this.dataManager.getWeekRange(this.weekOffset);
+
+            const totalMinutes = weekRecords.reduce((sum, r) => sum + r.minutes, 0);
+            const hours = Math.floor(totalMinutes / 60);
+            const minutes = totalMinutes % 60;
+            document.getElementById('week-total').textContent = `${hours}時間${minutes}分`;
+
+            const goalTotalMinutes = Object.values(this.dataManager.goals || {})
+                .filter(goal => goal?.isActive !== false)
+                .reduce((sum, goal) => sum + (Number(goal.totalMinutes) || 0), 0);
+            const goalTextEl = document.getElementById('week-goal-progress');
+            if (goalTextEl) {
+                if (goalTotalMinutes > 0) {
+                    const rate = Math.min(Math.round((totalMinutes / goalTotalMinutes) * 100), 999);
+                    goalTextEl.textContent = `達成率 ${rate}% ・ 目標 ${this.formatDuration(goalTotalMinutes)}`;
+                } else {
+                    goalTextEl.textContent = '目標未設定';
+                }
+            }
+
+            const today = new Date();
+            const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+            const todayMinutes = weekRecords.reduce((sum, r) => {
+                const recordedAt = new Date(r.recorded_at ?? r.created_at);
+                if (isNaN(recordedAt.getTime())) return sum;
+                const d = new Date(recordedAt.getFullYear(), recordedAt.getMonth(), recordedAt.getDate());
+                return d.getTime() === todayStart.getTime() ? sum + (Number(r.minutes) || 0) : sum;
             }, 0);
-        const todayGoalEl = document.getElementById('today-goal-time');
-        if (todayGoalEl) {
-            todayGoalEl.textContent = this.formatDuration(todayGoalMinutes);
-        }
-        const todayRateEl = document.getElementById('today-rate');
-        const todayMessageEl = document.getElementById('today-message');
-        const todayValuesEl = document.getElementById('today-values');
-        const todayBarFill = document.getElementById('today-bar-fill');
-        const todayRate = todayGoalMinutes > 0 ? Math.min(Math.round((todayMinutes / todayGoalMinutes) * 100), 999) : 0;
-        if (todayRateEl) {
-            todayRateEl.textContent = `達成率 ${todayRate}%`;
-        }
-        if (todayValuesEl) {
-            todayValuesEl.textContent = `${this.formatDuration(todayMinutes)} / ${this.formatDuration(todayGoalMinutes)}`;
-        }
-        if (todayBarFill) {
-            const width = todayGoalMinutes > 0 ? Math.min(Math.round((todayMinutes / todayGoalMinutes) * 100), 100) : 0;
-            todayBarFill.style.width = `${width}%`;
-        }
-        if (todayMessageEl) {
-            let message = 'まずは、やってみよう！';
-            if (todayRate >= 1 && todayRate <= 49) {
-                message = 'まずは50％を目指そう！';
-            } else if (todayRate >= 50 && todayRate <= 90) {
-                message = '達成が見えてきた！';
-            } else if (todayRate >= 91 && todayRate <= 99) {
-                message = 'あと一歩…！';
-            } else if (todayRate >= 100) {
-                message = '達成おめでとう！すごい！明日も頑張ろうね！';
+            const isWeekend = today.getDay() === 0 || today.getDay() === 6;
+            const todayGoalMinutes = Object.values(this.dataManager.goals || {})
+                .filter(goal => goal?.isActive !== false)
+                .reduce((sum, goal) => {
+                    const minutes = Number(isWeekend ? goal.weekendMinutes : goal.weekdayMinutes) || 0;
+                    return sum + minutes;
+                }, 0);
+            const todayGoalEl = document.getElementById('today-goal-time');
+            if (todayGoalEl) {
+                todayGoalEl.textContent = this.formatDuration(todayGoalMinutes);
             }
-            todayMessageEl.textContent = message;
-        }
+            const todayRateEl = document.getElementById('today-rate');
+            const todayMessageEl = document.getElementById('today-message');
+            const todayValuesEl = document.getElementById('today-values');
+            const todayBarFill = document.getElementById('today-bar-fill');
+            const todayRate = todayGoalMinutes > 0 ? Math.min(Math.round((todayMinutes / todayGoalMinutes) * 100), 999) : 0;
+            if (todayRateEl) {
+                todayRateEl.textContent = `達成率 ${todayRate}%`;
+            }
+            if (todayValuesEl) {
+                todayValuesEl.textContent = `${this.formatDuration(todayMinutes)} / ${this.formatDuration(todayGoalMinutes)}`;
+            }
+            if (todayBarFill) {
+                const width = todayGoalMinutes > 0 ? Math.min(Math.round((todayMinutes / todayGoalMinutes) * 100), 100) : 0;
+                todayBarFill.style.width = `${width}%`;
+            }
+            if (todayMessageEl) {
+                let message = 'まずは、やってみよう！';
+                if (todayRate >= 1 && todayRate <= 49) {
+                    message = 'まずは50％を目指そう！';
+                } else if (todayRate >= 50 && todayRate <= 90) {
+                    message = '達成が見えてきた！';
+                } else if (todayRate >= 91 && todayRate <= 99) {
+                    message = 'あと一歩…！';
+                } else if (todayRate >= 100) {
+                    message = '達成おめでとう！すごい！明日も頑張ろうね！';
+                }
+                todayMessageEl.textContent = message;
+            }
 
-        document.getElementById('streak-days').textContent = `連続${streak}日間`;
+            document.getElementById('streak-days').textContent = `連続${streak}日間`;
 
-        if (dashboardActive) {
-            try {
-                this.updateProgressBars(weekRecords);
-                this.updateChart(weekRecords, start);
-            } finally {
-                this.toggleBlockLoader('week-chart-loader', false);
+            if (dashboardActive) {
+                try {
+                    this.updateProgressBars(weekRecords);
+                    this.updateChart(weekRecords, start);
+                } finally {
+                    this.toggleBlockLoader('week-chart-loader', false);
+                }
+            }
+        } finally {
+            if (shouldShowHomeLoader) {
+                await this.ensureMinLoaderTime(homeLoaderStart);
+                this.setViewLoading('home', false);
+            }
+            if (shouldShowViewLoader) {
+                this.setViewLoading('dashboard', false);
             }
         }
     }
@@ -3409,7 +3536,7 @@ class App {
 
         // いいねボタン
         const likeBtn = card.querySelector('.like-btn');
-        likeBtn.addEventListener('click', async () => {
+        this.bindAsyncButton(likeBtn, async () => {
             await this.dataManager.toggleLike(post.id);
             await this.updateCommunity(document.querySelector('.tab-btn.active').dataset.tab);
         });
@@ -3435,7 +3562,7 @@ class App {
             }
 
             menuItems.forEach(item => {
-                item.addEventListener('click', async (e) => {
+                this.bindAsyncButton(item, async (e) => {
                     e.stopPropagation();
                     const action = item.dataset.action;
                     if (action === 'edit') {

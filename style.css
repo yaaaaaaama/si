@@ -294,13 +294,60 @@ body {
     background: #e0e0e0;
 }
 
+button:active,
+button.is-processing {
+    background: #e3e3e3;
+    color: #333;
+}
+
+button.is-processing {
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
 /* ビュー管理 */
 .view {
     display: none;
+    position: relative;
 }
 
 .view.active {
     display: block;
+}
+
+.view.is-loading {
+    pointer-events: none;
+}
+
+.view.is-loading .view-loading-target {
+    visibility: hidden;
+}
+
+.view.is-loading .block-loader {
+    display: none;
+}
+
+.view.is-loading::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 160px;
+    width: 22px;
+    height: 22px;
+    margin: -11px 0 0 -11px;
+    border-radius: 50%;
+    border: 3px solid rgba(123, 79, 242, 0.25);
+    border-top-color: #7b4ff2;
+    animation: loading-spin 1s linear infinite;
+    z-index: 11;
+}
+
+#community-view.is-loading::before {
+    top: 170px;
+}
+
+#schedule-view.is-loading::before {
+    top: 170px;
 }
 
 /* ストップウォッチセクション */
@@ -1377,10 +1424,10 @@ body {
     width: 26px;
     height: 26px;
     border-radius: 50%;
-    border: 3px solid rgba(255, 176, 0, 0.2);
-    border-top-color: #ffb000;
+    border: 3px solid rgba(123, 79, 242, 0.25);
+    border-top-color: #7b4ff2;
     animation: loading-spin 1s linear infinite;
-    box-shadow: 0 0 10px rgba(255, 176, 0, 0.35);
+    box-shadow: 0 0 10px rgba(123, 79, 242, 0.35);
 }
 
 #week-chart {

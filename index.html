@@ -67,8 +67,8 @@
         <div id="home-view" class="view active">
             <div class="container has-top-label">
                 <div class="view-top-label">目標を記録する</div>
-                <div id="record-view" class="record-view">
-                    <div id="record-goals-list" class="record-goals-list"></div>
+                <div id="record-view" class="record-view view-loading-target">
+                    <div id="record-goals-list" class="record-goals-list view-loading-target"></div>
                     <button id="home-goal-add-btn" class="record-goal-add-btn" type="button">目標を登録</button>
                 </div>
                 <div id="measure-view" class="measure-view hidden">
@@ -199,7 +199,7 @@
                         </div>
                     </div>
                 </div>
-                <div id="user-records-container"></div>
+                <div id="user-records-container" class="view-loading-target"></div>
             </div>
         </div>
 
@@ -217,7 +217,7 @@
                 <div class="block-loader hidden" id="posts-loader">
                     <div class="block-spinner"></div>
                 </div>
-                <div id="posts-container"></div>
+                <div id="posts-container" class="view-loading-target"></div>
             </div>
         </div>
 
@@ -232,7 +232,7 @@
                 <div class="block-loader hidden" id="schedule-loader">
                     <div class="block-spinner"></div>
                 </div>
-                <div id="schedule-container"></div>
+                <div id="schedule-container" class="view-loading-target"></div>
             </div>
         </div>
 
@@ -248,7 +248,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="dashboard-header">
+                <div class="dashboard-header view-loading-target">
                     <div class="dashboard-avatar">
                         <button id="dashboard-avatar-btn" class="dashboard-avatar-btn" type="button" aria-label="プロフィール画像">
                             <img id="dashboard-avatar-img" class="dashboard-avatar-img hidden" alt="プロフィール画像">
@@ -266,7 +266,7 @@
                     </div>
                 </div>
 
-                <div class="chart-section">
+                <div class="chart-section view-loading-target">
                     <div class="chart-layout">
                         <div class="week-total-panel">
                             <h3>今週の累計時間</h3>
@@ -287,21 +287,21 @@
                             <canvas id="week-chart"></canvas>
                             
                             <div class="week-nav">
-                                <button id="week-prev-btn" class="secondary-btn week-nav-btn">←</button>
-                                <button id="week-next-btn" class="secondary-btn week-nav-btn">→</button>
+                                <button id="week-prev-btn" class="secondary-btn week-nav-btn">前週</button>
+                                <button id="week-next-btn" class="secondary-btn week-nav-btn">翌週</button>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="goal-section">
+                <div class="goal-section view-loading-target">
                     <div class="section-header">
                         <h3>週次達成状況</h3>
                     </div>
                     <div id="progress-list"></div>
                 </div>
 
-                <div class="goal-register-section">
+                <div class="goal-register-section view-loading-target">
                     <div class="section-header">
                         <h3>目標管理</h3>
                     </div>
@@ -378,7 +378,7 @@
     <div id="na-modal" class="modal hidden">
         <div class="modal-content">
             <h3>次のやること</h3>
-            <h4>やること（必須）</h4>
+            <h4>やること</h4>
             <input type="text" id="na-title" placeholder="例：英語の発音練習" maxlength="50">
 
             <h4>日付</h4>
@@ -497,7 +497,7 @@
             <h3 id="goal-edit-title">目標を登録</h3>
             <label class="goal-register-label">
                 <span>カテゴリ</span>
-                <input type="text" id="goal-edit-category" placeholder="英語/筋トレ/開発" maxlength="20">
+                <input type="text" id="goal-edit-category" placeholder="英語 / 筋トレ / 開発" maxlength="20">
             </label>
             <div class="goal-register-hours">
                 <label class="goal-register-label">
