@@ -1077,7 +1077,7 @@ class App {
 
                 if (!ok) return;
 
-                if (naTitle) {
+                if (naTitle || naDateValue) {
                     let scheduledAtIso = null;
                     if (naDateValue) {
                         const [y, m, d] = naDateValue.split('-').map(Number);
@@ -1093,7 +1093,12 @@ class App {
                 this.lastRecordCategory = category;
 
                 this.hideCategoryModal();
-                await this.updateDashboard({ refreshCategories: false, refreshGoals: false });
+                await this.updateDashboard({ refreshCategories: false, refreshGoals: false, refreshNextActions: true });
+                await this.updateRecordGoalsList();
+                if (this.isScheduleActive?.()) {
+                    const tab = document.querySelector('#schedule-view .tab-btn.active')?.dataset.tab || 'recommended';
+                    await this.updateSchedule(tab);
+                }
 
                 const memoEl = document.getElementById('stopwatch-memo');
                 if (memoEl) memoEl.value = '';
@@ -1109,10 +1114,15 @@ class App {
 
         const refreshNaSaveEnabled = () => {
             const title = naTitleEl.value.trim();
-            naSaveBtn.disabled = !title;
+            const dtValue = document.getElementById('na-datetime')?.value || '';
+            naSaveBtn.disabled = !(title || dtValue);
         };
 
         naTitleEl.addEventListener('input', refreshNaSaveEnabled);
+        const naDateEl = document.getElementById('na-datetime');
+        if (naDateEl) {
+            naDateEl.addEventListener('change', refreshNaSaveEnabled);
+        }
 
         this.bindAsyncButton(document.getElementById('na-skip-btn'), async () => {
             this.hideNextActionModal();
@@ -1123,7 +1133,7 @@ class App {
             const title = document.getElementById('na-title').value.trim();
             const dtValue = document.getElementById('na-datetime').value;
 
-            if (!title) return;
+            if (!title && !dtValue) return;
             const category = this.currentNaCategory || this.lastRecordCategory;
             if (!category) {
                 alert('カテゴリを選択してから保存してください。');
@@ -1290,12 +1300,20 @@ class App {
                     const localDate = new Date(y, m - 1, d, 0, 0, 0);
                     if (!isNaN(localDate.getTime())) scheduledAtIso = localDate.toISOString();
                 }
-                if (title) {
+                if (title || dtValue) {
                     const ok = await this.dataManager.addNextAction(saved.category, title, scheduledAtIso);
-                    if (!ok) return;
+                    if (!ok) {
+                        alert('次のやることの保存に失敗しました。');
+                        return;
+                    }
                 }
 
                 await this.updateDashboard({ refreshCategories: false, refreshGoals: false, refreshNextActions: true });
+                await this.updateRecordGoalsList();
+                if (this.isScheduleActive?.()) {
+                    const tab = document.querySelector('#schedule-view .tab-btn.active')?.dataset.tab || 'recommended';
+                    await this.updateSchedule(tab);
+                }
                 if (manualNaTitleEl) manualNaTitleEl.value = '';
                 if (manualNaDateEl) manualNaDateEl.value = '';
                 refreshManualNaSaveEnabled();
@@ -2551,19 +2569,26 @@ class App {
 
         const naTitle = document.getElementById('manual-inline-na-title')?.value.trim() || '';
         const naDateValue = document.getElementById('manual-inline-na-date')?.value || '';
-        if (naTitle) {
+        if (naTitle || naDateValue) {
             let scheduledAtIso = null;
             if (naDateValue) {
                 const [y, m, d] = naDateValue.split('-').map(Number);
                 const localDate = new Date(y, m - 1, d, 0, 0, 0);
                 if (!isNaN(localDate.getTime())) scheduledAtIso = localDate.toISOString();
             }
-            await this.dataManager.addNextAction(category, naTitle, scheduledAtIso);
+            const ok = await this.dataManager.addNextAction(category, naTitle, scheduledAtIso);
+            if (!ok) {
+                alert('次のやることの保存に失敗しました。');
+            }
         }
 
         this.lastRecordCategory = category;
         await this.updateDashboard({ refreshCategories: false, refreshGoals: false });
         await this.updateRecordGoalsList();
+        if (this.isScheduleActive?.()) {
+            const tab = document.querySelector('#schedule-view .tab-btn.active')?.dataset.tab || 'recommended';
+            await this.updateSchedule(tab);
+        }
         this.refreshManualInlineSaveState();
         await this.switchView('dashboard');
     }
@@ -2869,7 +2894,7 @@ class App {
                 dtEl.value = '';
             }
         }
-        if (saveBtn) saveBtn.disabled = !(titleEl?.value || '').trim();
+        if (saveBtn) saveBtn.disabled = !((titleEl?.value || '').trim() || dtEl?.value);
     }
 
     hideNextActionModal() {
@@ -3353,6 +3378,11 @@ class App {
 
     isCommunityActive() {
         const view = document.getElementById('community-view');
+        return Boolean(view && view.classList.contains('active'));
+    }
+
+    isScheduleActive() {
+        const view = document.getElementById('schedule-view');
         return Boolean(view && view.classList.contains('active'));
     }
 
